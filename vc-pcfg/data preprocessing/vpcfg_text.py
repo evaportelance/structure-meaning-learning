@@ -1,13 +1,13 @@
 import os, sys, re
 import time, json
 
-import spacy, benepar
+import spacy, nltk, benepar
 
 from tqdm import tqdm
 from collections import Counter, OrderedDict, defaultdict
 
 PARSER_NAME = 'benepar_en2_large'
-#parser = benepar.Parser(PARSER_NAME)
+parser = benepar.Parser(PARSER_NAME)
 
 def get_caps(caps, img_id):
     this_caps = []
@@ -55,7 +55,7 @@ def mscoco_split_data(portion='train', idx=4):
         print('total {} samples'.format(nline))
 
 def init_parser():
-    nltk.download('punkt')
+   # nltk.download('punkt')
     benepar.download(PARSER_NAME)
 
 def write_trees(ibatch, fw, captions, bsize):
@@ -84,7 +84,7 @@ def parse_batch(ifile, ofile, bsize=500, flickr=False, abstractscenes=False):
                 line = line.split("\t")[1]
             if abstractscenes:
                 line = line.split("\t")[2]
-            caption = benepar.InputSentence(line.strip().split[" "])
+            caption = benepar.InputSentence(line.strip().split(" "))
             captions.append(caption)
         if captions:
             write_trees(ibatch, fw, captions, bsize)
