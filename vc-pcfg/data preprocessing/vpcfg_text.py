@@ -1,13 +1,13 @@
 import os, sys, re
 import time, json
 
-import nltk, benepar
+import spacy, benepar
 
 from tqdm import tqdm
 from collections import Counter, OrderedDict, defaultdict
 
 PARSER_NAME = 'benepar_en2_large'
-parser = benepar.Parser(PARSER_NAME)
+#parser = benepar.Parser(PARSER_NAME)
 
 def get_caps(caps, img_id):
     this_caps = []
@@ -84,7 +84,8 @@ def parse_batch(ifile, ofile, bsize=500, flickr=False, abstractscenes=False):
                 line = line.split("\t")[1]
             if abstractscenes:
                 line = line.split("\t")[2]
-            captions.append(line.strip())
+            caption = benepar.InputSentence(line.strip().split[" "])
+            captions.append(caption)
         if captions:
             write_trees(ibatch, fw, captions, bsize)
 
