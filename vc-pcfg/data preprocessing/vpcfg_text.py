@@ -6,7 +6,7 @@ import spacy, nltk, benepar
 from tqdm import tqdm
 from collections import Counter, OrderedDict, defaultdict
 
-PARSER_NAME = 'benepar_en2_large'
+PARSER_NAME = 'benepar_en3_large'
 parser = benepar.Parser(PARSER_NAME)
 
 def get_caps(caps, img_id):
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     root_caps = "../../preprocessed-data/" #
 
     # download the Benepar, only need to run once
-    init_parser()
+    #init_parser()
 
     # extract mscoco captions for each split
     #mscoco_split_data(portion='test', idx=3)
