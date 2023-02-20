@@ -21,6 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--binarize', default=False, type=bool)
 parser.add_argument('--ifile', default=None, type=str)
 parser.add_argument('--ofile', default=None, type=str)
+parser.add_argument('--vocab_size', default=2000, type=int)
 
 
 def extract_spans(tree):
@@ -120,4 +121,4 @@ if __name__ == '__main__':
     if "train" in args.ofile:
         args.ifile = args.ofile
         args.ofile = args.ifile.rsplit("/", 1)[0] + "/data.dict"
-        main_make_vocab(args)
+        main_make_vocab(args, vocab_size=args.vocab_size)
