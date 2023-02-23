@@ -181,7 +181,7 @@ def abstractscenes_read_all_parses(index_file, parse_file, parses):
 def abstractscenes_write_all():
     caps_tmp = root_caps + "abstractscenes/{}.{}"
     files = ['SimpleSentences1_clean', 'SimpleSentences2_clean']
-    parses = defaultdict(list)
+    parses = list()
     for fname in files:
         index_file = caps_tmp.format(fname, "txt")
         parse_file= caps_tmp.format(fname, "parsed")
@@ -190,8 +190,8 @@ def abstractscenes_write_all():
     all_ids_file = caps_tmp.format("all_parses", "id")
     with open(all_parses_file, "w") as f1, open(all_ids_file, "w") as f2:
         for id, parse in parses:
-            f1.write(str(id)+"\n")
-            f2.write(parse)
+            f2.write(str(id)+"\n")
+            f1.write(parse)
 
 
 if __name__ == '__main__':
