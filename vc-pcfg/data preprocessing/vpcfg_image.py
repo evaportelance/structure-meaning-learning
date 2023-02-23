@@ -29,7 +29,7 @@ seed_all_rng(1213) # Yann's random luck
 # Data path options
 parser = argparse.ArgumentParser()
 #parser.add_argument('--data_root', default='', type=str, help='')
-parser.add_argument('--npz_token', default='', type=str, help='')
+parser.add_argument('--npz_token', default='resn-152', type=str, help='')
 parser.add_argument('--flickr_root', default='', type=str, help='')
 parser.add_argument('--mscoco_root', default='', type=str, help='')
 #EP: Adding abstract scenes path arguments
@@ -37,6 +37,8 @@ parser.add_argument('--abstractscenes_root', default='', type=str, help='')
 parser.add_argument('--flickr_out_root', default='', type=str, help='')
 parser.add_argument('--mscoco_out_root', default='', type=str, help='')
 parser.add_argument('--abstractscenes_out_root', default='', type=str, help='')
+parser.add_argument('--split_list_file', default='', type=str, help='')
+parser.add_argument('--split_name', default='', type=str, help='')
 parser.add_argument('--clip_model_root', default='', type=str, help='')
 parser.add_argument('--clip_model_name', default='', type=str, help='')
 parser.add_argument('--batch_size', default=8, type=int, help='')
@@ -351,26 +353,35 @@ def main_collect_flickr_npz(cfg):
 def main_collect_abstractscenes_npz(cfg):
     def per_split(id_file, ipath, ofile):
         vectors = list()
-        with open(id_file, "r") as fr:
-            for line in fr:
-                id = line.strip().split(".")[0]
-                npz_file = f"{ipath}/{id}.npz"
-                vector = np.load(npz_file)["v"]
-                vectors.append(vector)
-        vectors = np.stack(vectors, axis=0)
+        if id_file:
+            with open(id_file, "r") as fr:
+                for line in fr:
+                    id = line.strip()
+                    npz_file = f"{ipath}/{id}.npz"
+                    vector = np.load(npz_file)["v"]
+                    vectors.append(vector)
+        else:
+            for npz_file in os.listdir(npz_root):
+                if npz_file.endswith('.npz'):
+                    vector = np.load(npz_file)["v"]
+                    vectors = np.stack(vectors, axis=0)
         np.save(ofile, vectors)
         echo(f"saved {vectors.shape} in {ofile}")
 
-    def main_per_split(split):
-        npz_root = f"{cfg.flickr_root}/{cfg.npz_token}"
-        ofile = f"{cfg.flickr_out_root}/{split}_{cfg.npz_token}.npy"
-        id_file = f"{cfg.flickr_out_root}/{split}.id"
-        echo(f"src: {npz_root}\ntgt: {ofile}\nids: {id_file}")
+    if len(cfg.split_list_file) > 0:
+        split_name = cfg.split_name
+        npz_root = f"{cfg.abstractscenes_root}/{cfg.npz_token}"
+        ofile = f"{cfg.flickr_out_root}/{split_name}_{cfg.npz_token}.npy"
+        id_file = f"{cfg.flickr_out_root}/{cfg.split_list_file}"
         per_split(id_file, npz_root, ofile)
+    else:
+        split_name = "all"
+        npz_root = f"{cfg.abstractscenes_root}/{cfg.npz_token}"
+        ofile = f"{cfg.flickr_out_root}/{split_name}_{cfg.npz_token}.npy"
+        per_split(None, npz_root, ofile)
 
-    main_per_split("train")
-    main_per_split("test")
-    main_per_split("val")
+
+
 
 
 if __name__ == '__main__':
