@@ -141,7 +141,8 @@ def create_abstractscenes_data_list(cfg):
             continue
         for fname in files:
             if fname.endswith(".png"):
-                image_list.append((fname[:-4], f"{root}/{fname}"))
+                id = fname[:-4].replace("Scene", "").replace("_", "")
+                image_list.append((id, f"{root}/{fname}"))
     return image_list
 
 
@@ -215,7 +216,6 @@ def encode_images(cfg, clip, resnet, dataloader, clip_npz_root, resnet_npz_root)
     nsample = 0
     start_time = time.time()
     for ibatch, (image_clip, image_resnet, names) in enumerate(dataloader):
-        ### EP running on cpu so I commented out cuda calls
         image_clip = image_clip.cuda(0, non_blocking=True)
         image_resnet = image_resnet.cuda(0, non_blocking=True)
 
@@ -347,6 +347,31 @@ def main_collect_flickr_npz(cfg):
     main_per_split("train")
     main_per_split("test")
     main_per_split("val")
+
+def main_collect_abstractscenes_npz(cfg):
+    def per_split(id_file, ipath, ofile):
+        vectors = list()
+        with open(id_file, "r") as fr:
+            for line in fr:
+                id = line.strip().split(".")[0]
+                npz_file = f"{ipath}/{id}.npz"
+                vector = np.load(npz_file)["v"]
+                vectors.append(vector)
+        vectors = np.stack(vectors, axis=0)
+        np.save(ofile, vectors)
+        echo(f"saved {vectors.shape} in {ofile}")
+
+    def main_per_split(split):
+        npz_root = f"{cfg.flickr_root}/{cfg.npz_token}"
+        ofile = f"{cfg.flickr_out_root}/{split}_{cfg.npz_token}.npy"
+        id_file = f"{cfg.flickr_out_root}/{split}.id"
+        echo(f"src: {npz_root}\ntgt: {ofile}\nids: {id_file}")
+        per_split(id_file, npz_root, ofile)
+
+    main_per_split("train")
+    main_per_split("test")
+    main_per_split("val")
+
 
 if __name__ == '__main__':
     echo(cfg)
