@@ -175,8 +175,7 @@ def abstractscenes_read_all_parses(index_file, parse_file, parses):
     with open(index_file, "r") as f1, open(parse_file, "r") as f2:
         for line1, line2 in zip(f1, f2):
             img_id = line1.split("\t")[0]
-            caption = line1.split("\t")[2]
-            parses[img_id].append({'caption':caption, 'parse':line2})
+            parses.append((img_id,line2))
     return parses
 
 def abstractscenes_write_all():
@@ -187,9 +186,12 @@ def abstractscenes_write_all():
         index_file = caps_tmp.format(fname, "txt")
         parse_file= caps_tmp.format(fname, "parsed")
         parses = abstractscenes_read_all_parses(index_file, parse_file, parses)
-    all_parses_file = parse_file= caps_tmp.format("all_parses", "json")
-    with open(all_parses_file, "w") as f:
-        json.dump(parses, f)
+    all_parses_file = caps_tmp.format("all_parses", "parsed")
+    all_ids_file = caps_tmp.format("all_parses", "id")
+    with open(all_parses_file, "w") as f1, open(all_ids_file, "w") as f2:
+        for id, parse in parses:
+            f1.write(str(id)+"\n")
+            f2.write(parse)
 
 
 if __name__ == '__main__':
