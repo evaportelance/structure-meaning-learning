@@ -356,31 +356,33 @@ def main_collect_abstractscenes_npz(cfg):
         if id_file:
             with open(id_file, "r") as fr:
                 for line in fr:
+                    #assumes ids are in order
                     id = line.strip()
                     npz_file = f"{ipath}/{id}.npz"
                     vector = np.load(npz_file)["v"]
                     vectors.append(vector)
         else:
-            for npz_file in os.listdir(npz_root):
-                if npz_file.endswith('.npz'):
-                    vector = np.load(npz_file)["v"]
-                    vectors = np.stack(vectors, axis=0)
+            for id in range(0, 10020):
+                if id > 10:
+                    npz_file = f"{ipath}/0{id}.npz"
+                else:
+                    npz_file = f"{ipath}/{id}.npz"
+                vector = np.load(npz_file)["v"]
+                vectors = np.stack(vectors, axis=0)
         np.save(ofile, vectors)
         echo(f"saved {vectors.shape} in {ofile}")
 
     if len(cfg.split_list_file) > 0:
         split_name = cfg.split_name
         npz_root = f"{cfg.abstractscenes_root}/{cfg.npz_token}"
-        ofile = f"{cfg.flickr_out_root}/{split_name}_{cfg.npz_token}.npy"
-        id_file = f"{cfg.flickr_out_root}/{cfg.split_list_file}"
+        ofile = f"{cfg.abstractscenes_out_root}/{split_name}_{cfg.npz_token}.npy"
+        id_file = f"{cfg.abstractscenes_out_root}/{cfg.split_list_file}"
         per_split(id_file, npz_root, ofile)
     else:
         split_name = "all"
         npz_root = f"{cfg.abstractscenes_root}/{cfg.npz_token}"
-        ofile = f"{cfg.flickr_out_root}/{split_name}_{cfg.npz_token}.npy"
+        ofile = f"{cfg.abstractscenes_out_root}/{split_name}_{cfg.npz_token}.npy"
         per_split(None, npz_root, ofile)
-
-
 
 
 
@@ -389,10 +391,11 @@ if __name__ == '__main__':
 
     #main_collect_mscoco_npz(cfg)
     #main_collect_flickr_npz(cfg)
+    main_collect_abstractscenes_npz(cfg)
 
     with torch.no_grad():
         #main_encode_flickr_images(cfg)
         #main_encode_mscoco_images(cfg)
-        main_encode_abstractscenes_images(cfg)
+        #main_encode_abstractscenes_images(cfg)
         pass
     pass
