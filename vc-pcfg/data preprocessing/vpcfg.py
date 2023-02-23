@@ -98,24 +98,27 @@ if __name__ == '__main__':
     main_remove_punct(args)
 
     # non-binarized gold parses
-    args.ifile = args.ofile
-    args.ofile = args.ifile.rsplit(".")[0] + "_gold_caps.json"
+    file = str(args.ofile)
+    args.ifile = file
+    args.ofile = str(file.rsplit(".")[0]) + "_gold_caps.json"
     print(args.ofile)
     save_labeled_tree(args)
 
     # binarized gold parses
     args.binarize = True
-    args.ofile = args.ifile.rsplit(".")[0] + "_caps.bin"
+    args.ofile = str(args.ifile.rsplit(".")[0]) + "_caps.bin"
     binarize_linear_tree(args)
 
     # binarized gold parses
-    args.ifile = args.ofile
-    args.ofile = args.ifile.rsplit(".")[0] + ".json"
+    file = str(args.ofile)
+    args.ifile = file
+    args.ofile = str(args.ifile.rsplit(".")[0]) + ".json"
     main_make_btree_json(args)
 
     # sentences
-    args.ifile = args.ofile
-    args.ofile = args.ifile.rsplit(".")[0] + ".text"
+    file = str(args.ofile)
+    args.ifile = file
+    args.ofile = str(args.ifile.rsplit(".")[0]) + ".text"
     main_save_text(args)
 
     # vocabulary
