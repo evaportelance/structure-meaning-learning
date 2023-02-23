@@ -363,12 +363,13 @@ def main_collect_abstractscenes_npz(cfg):
                     vectors.append(vector)
         else:
             for id in range(0, 10020):
-                if id > 10:
+                if id < 10:
                     npz_file = f"{ipath}/0{id}.npz"
                 else:
                     npz_file = f"{ipath}/{id}.npz"
                 vector = np.load(npz_file)["v"]
-                vectors = np.stack(vectors, axis=0)
+                vectors.append(vector)
+        vectors = np.stack(vectors, axis=0)
         np.save(ofile, vectors)
         echo(f"saved {vectors.shape} in {ofile}")
 
