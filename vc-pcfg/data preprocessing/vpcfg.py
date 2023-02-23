@@ -100,25 +100,22 @@ if __name__ == '__main__':
     # non-binarized gold parses
     file = str(args.ofile)
     args.ifile = file
-    args.ofile = str(file.rsplit(".")[0]) + "_gold_caps.json"
-    print(args.ofile)
+    args.ofile = file[:-5] + "_gold_caps.json"
     save_labeled_tree(args)
 
     # binarized gold parses
     args.binarize = True
-    args.ofile = str(args.ifile.rsplit(".")[0]) + "_caps.bin"
+    args.ofile = file[:-5] + "_caps.bin"
     binarize_linear_tree(args)
 
     # binarized gold parses
-    file = str(args.ofile)
-    args.ifile = file
-    args.ofile = str(args.ifile.rsplit(".")[0]) + ".json"
+    args.ifile = args.ofile
+    args.ofile = str(args.ifile[:-4]) + ".json"
     main_make_btree_json(args)
 
     # sentences
-    file = str(args.ofile)
-    args.ifile = file
-    args.ofile = str(args.ifile.rsplit(".")[0]) + ".text"
+    args.ifile = args.ofile
+    args.ofile = str(args.ifile[:-5]) + ".text"
     main_save_text(args)
 
     # vocabulary
