@@ -47,8 +47,8 @@ def remove_punct(tree, word_tags):
             assert False
     out = tree.pformat(margin=sys.maxsize).strip()
     # remove (X ), i.e., zero-length spans
-    while re.search('\(([a-zA-Z0-9]{1,})((\-|\=|\+|\_)[a-zA-Z0-9]*)*\s{1,}\)', out) is not None:
-        out = re.sub('\(([a-zA-Z0-9]{1,})((\-|\=|\+|\_)[a-zA-Z0-9]*)*\s{1,}\)', '', out)
+    while re.search('\(([a-zA-Z0-9`\.,']{1,})((\-|\=|\+|\_)[a-zA-Z0-9]*)*\s{1,}\)', out) is not None:
+        out = re.sub('\(([a-zA-Z0-9`\.,']{1,})((\-|\=|\+|\_)[a-zA-Z0-9]*)*\s{1,}\)', '', out)
     out = out.replace(' )', ')')
     out = re.sub('\s{2,}', ' ', out)
     return out

@@ -13,7 +13,7 @@ def add_words(ifile, vocab):
             if not line:
                 break
             line = line.split("\t")[2]
-            line = line.strip().split(" ")
+            line = line.strip().tolower().split(" ")
             for word in line:
               if word in vocab:
                 vocab[word] +=1

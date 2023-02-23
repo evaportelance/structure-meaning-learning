@@ -1,11 +1,13 @@
-import os 
+import os
 import time, pickle, argparse, logging
 import numpy as np
 import torch
 
-from vpcfg import data
+#from vpcfg import data
+import vpcfg.as_dataloader as data
 from vpcfg.utils import Vocabulary, save_checkpoint
-from vpcfg.evaluation import AverageMeter, LogCollector, validate_parser 
+from vpcfg.evaluation import AverageMeter, LogCollector, validate_parser
+from vpcfg.as_vocab import get_vocab
 
 def train(opt, train_loader, model, epoch, val_loader, vocab):
     # average meters to record the training statistics
@@ -58,7 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('--w_dim', default=512, type=int, help='embedding dim for variational LSTM')
     parser.add_argument('--gpu', default=-1, type=int, help='which gpu to use')
 
-    # 
+    #
     parser.add_argument('--seed', default=1213, type=int, help='random seed')
     parser.add_argument('--model_init', default=None, type=str, help='random seed')
     parser.add_argument('--w2vec_file', default=None, type=str, help='word vector file')
@@ -84,6 +86,7 @@ if __name__ == '__main__':
                         help='number of training epochs')
     parser.add_argument('--batch_size', default=5, type=int,
                         help='size of a training mini-batch')
+    parser.add_argument('--tiny', action='store_true')
     parser.add_argument('--grad_clip', default=3., type=float,
                         help='gradient clipping threshold')
     parser.add_argument('--lr', default=.001, type=float,
@@ -107,7 +110,7 @@ if __name__ == '__main__':
                         help='optimizer, can be Adam, SGD, etc.')
     parser.add_argument('--beta1', default=0.75, type=float, help='beta1 for adam')
     parser.add_argument('--beta2', default=0.999, type=float, help='beta2 for adam')
-    # 
+    #
     parser.add_argument('--vse_mt_alpha', type=float, default=0.01)
     parser.add_argument('--vse_lm_alpha', type=float, default=1.0)
 
@@ -136,7 +139,9 @@ if __name__ == '__main__':
     logger.info(opt)
 
     # load predefined vocabulary and pretrained word embeddings if applicable
-    vocab = pickle.load(open(os.path.join(opt.data_path, opt.vocab_name), 'rb'))
+    #vocab = pickle.load(open(os.path.join(opt.data_path, opt.vocab_name), 'rb'))
+    ## EP to get Abstract Scenes vocabulary
+    vocab = get_vocab(opt.data_path)
     opt.vocab_size = len(vocab)
 
     logger.info("|vocab|={}".format(len(vocab)))
@@ -156,18 +161,20 @@ if __name__ == '__main__':
 
     # Load data loaders
     data.set_constant(opt.visual_mode, opt.max_length)
-    if opt.batch_size < 5:
+    if opt.tiny:
+        train_loader, val_loader = data.get_tiny_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, sampler=sampler)
+    elif opt.batch_size < 5:
         train_loader, val_loader = data.get_train_iters(
             opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, sampler=sampler
         )
     else:
         train_loader = data.get_eval_iter(
-            opt.data_path, opt.prefix + "train", vocab, opt.batch_size, 
-            nworker=opt.workers, shuffle=False, sampler=sampler, loadimg=opt.visual_mode 
+            opt.data_path, opt.prefix + "train", vocab, opt.batch_size,
+            nworker=opt.workers, shuffle=False, sampler=sampler, loadimg=opt.visual_mode
         )
         val_loader = data.get_eval_iter(
-            opt.data_path, opt.prefix + "val", vocab, int(opt.batch_size / 2) + 1, 
-            nworker=opt.workers, shuffle=False, sampler=None, loadimg=opt.visual_mode  
+            opt.data_path, opt.prefix + "val", vocab, int(opt.batch_size / 2) + 1,
+            nworker=opt.workers, shuffle=False, sampler=None, loadimg=opt.visual_mode
         )
 
     save_checkpoint({
@@ -182,7 +189,7 @@ if __name__ == '__main__':
         #data.set_rnd_seed(10101)
         validate_parser(opt, val_loader, model, vocab, logger, opt.visual_mode)
 
-    best_rsum = float('inf') 
+    best_rsum = float('inf')
     for epoch in range(opt.num_epochs):
         # train for one epoch
         train(opt, train_loader, model, epoch, val_loader, vocab)

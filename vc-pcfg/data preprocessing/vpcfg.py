@@ -100,6 +100,7 @@ if __name__ == '__main__':
     # non-binarized gold parses
     args.ifile = args.ofile
     args.ofile = args.ifile.rsplit(".")[0] + "_gold_caps.json"
+    print(args.ofile)
     save_labeled_tree(args)
 
     # binarized gold parses
