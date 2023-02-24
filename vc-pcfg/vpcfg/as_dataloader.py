@@ -137,77 +137,44 @@ class SortedSequentialSampler(data.Sampler):
 
 class DataLoader(data.Dataset):
     def __init__(self, data_path, data_split, vocab,
-                 load_img=True, img_dim=2048, batch_size=1):
+                 load_img=True, img_dim=2048, batch_size=1, tiny=False):
         self.batch_size = batch_size
         self.vocab = vocab
-        self.captions = list()
-        self.spans = list()
+        self.ids_captions_spans = list()
         max_length = TXT_MAX_LENGTH
         indexes, removed, idx = list(), list(), -1
-        parses = json.load(os.path.join(data_path, f'{data_split}_all_parses.json'))
-        for id
-        with open(os.path.join(data_path, f'{data_split}_parses.json'), 'r') as f:
-            for line in f:
+        with open(os.path.join(data_path, f'{data_split}_caps.json'), 'r') as f1 and open(os.path.join(data_path, f'{data_split}.id'), 'r') as f2:
+            for line, img_id in zip(f1.readlines(), f2.readlines()):
+                if tiny and idx > 32 :
+                    break
                 idx += 1
                 (caption, span) = json.loads(line)
                 caption = [clean_number(w) for w in caption.strip().lower().split()]
                 if TXT_MAX_LENGTH < 1000 and (len(caption) < 2 or len(caption) > max_length):
                     removed.append((idx, len(caption)))
-                    self.captions.append(-1)
-                    self.spans.append(-1)
-                    indexes.append(-1)
                     continue
-                self.captions.append(caption)
-                self.spans.append(span)
+                self.ids_captions_spans.append((int(img_id), caption, span))
                 indexes.append(idx)
-        self.length = len(self.captions)
+        self.length = len(self.ids_captions_spans)
         self.im_div = TXT_IMG_DIVISOR
-
+        echo("removed idx: ")
+        echo(removed)
 
         if load_img:
-            self.images = np.load(os.path.join(data_path, f'{data_split}_ims.npy'))
+            self.images = np.load(os.path.join(data_path, 'all_resn-152.npy'))
         else:
-            self.images = np.zeros((self.length // TXT_IMG_DIVISOR, img_dim))
-        
-        fname = os.path.join(data_path, f'{data_split}_caps.json')
-        #print(len(indexes), len(removed), idx, self.length, self.im_div, load_img, removed)
-        if len(removed) > 0: # remove -1
-            assert len(indexes) == self.images.shape[0] * TXT_IMG_DIVISOR
-            groups = np.array_split(indexes, self.images.shape[0])
-            indice, image_idxes = list(), list()
-            for idx, group in enumerate(groups):
-                if -1 not in group:
-                    indice.extend(group)
-                    image_idxes.append(idx)
-                else:
-                    #print(idx, group)
-                    pass
-            self.spans = [self.spans[k] for k in indice]
-            self.captions = [self.captions[k] for k in indice]
-            self.images = self.images[image_idxes]
-            self.length = len(self.captions)
-            assert self.length == self.images.shape[0] * TXT_IMG_DIVISOR
-        #print(self.length, len(self.spans), self.images.shape[0])
-
-        # sort captions by length by default
-        self.image_idxes = np.repeat(range(int(self.length / self.im_div)), self.im_div)
+            self.images = np.zeros(10020, img_dim))
 
     def _shuffle(self):
         indice = torch.randperm(self.length).tolist()
-        indice = sorted(indice, key=lambda k: len(self.captions[k]))
-        self.spans = [self.spans[k] for k in indice]
-        self.captions = [self.captions[k] for k in indice]
-        self.image_idxes = self.image_idxes[indice]
+        indice = sorted(indice, key=lambda k: len(self.ids_captions_spans[k]))
+        self.ids_captions_spans = [self.ids_captions_spans[k] for k in indice]
 
     def __getitem__(self, index):
-        # image
-        #img_id = index  // self.im_div
-        img_id = self.image_idxes[index]
+        img_id, cap, span = self.ids_captions_spans[index]
         image = torch.tensor(self.images[img_id])
-        # caption
-        caption = [self.vocab(token) for token in self.captions[index]]
+        caption = [self.vocab(token) for token in cap]
         caption = torch.tensor(caption)
-        span = self.spans[index]
         span = torch.tensor(span)
         return image, caption, index, img_id, span
 
@@ -236,8 +203,9 @@ def get_data_loader(data_path, data_split, vocab,
                     nworker=2,
                     loadimg=True,
                     img_dim=2048,
-                    sampler=None):
-    dset = DataLoader(data_path, data_split, vocab, loadimg, img_dim, batch_size)
+                    sampler=None,
+                    tiny = False):
+    dset = DataLoader(data_path, data_split, vocab, loadimg, img_dim, batch_size, tiny)
     if sampler:
         model = SortedRandomSampler
         if not isinstance(sampler, bool) and issubclass(sampler, data.Sampler):
@@ -254,29 +222,12 @@ def get_data_loader(data_path, data_split, vocab,
     )
     return data_loader
 
-def get_train_iters(data_path, prefix, vocab, batch_size, nworker, loadimg=True, sampler=True):
-    train_loader = get_data_loader(
-        data_path, prefix + 'train', vocab,
-        batch_size=batch_size, shuffle=False, nworker=nworker, sampler=sampler, loadimg=loadimg
-    )
-    val_loader = get_data_loader(
-        data_path, prefix + 'val', vocab,
-        batch_size=batch_size, shuffle=False, nworker=nworker, sampler=None, loadimg=loadimg
-    )
-    return train_loader, val_loader
-
-def get_eval_iter(data_path, split_name, vocab, batch_size,
-                  nworker=2,
-                  shuffle=False,
-                  loadimg=False,
-                  img_dim=2048,
-                  sampler=None):
-    eval_loader = get_data_loader(data_path, split_name, vocab,
-                  batch_size=batch_size,
-                  shuffle=shuffle,
-                  nworker=nworker,
-                  loadimg=loadimg,
-                  img_dim=img_dim,
-                  sampler=sampler
-    )
-    return eval_loader
+def get_data_iters(data_path, prefix, vocab, batch_size, nworker, shuffle=False, loadimg=True, sampler=True, tiny=False, split='train'):
+    if split == 'val':
+        sampler = None
+    elif split == 'test':
+        sampler = None
+        shuffle=False
+        loadimg=False
+    data_loader = get_data_loader(data_path, prefix, vocab, batch_size=batch_size, shuffle=shuffle, nworker=nworker, sampler=sampler, loadimg=loadimg, tiny=tiny)
+    return data_loader

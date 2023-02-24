@@ -70,6 +70,9 @@ if __name__ == '__main__':
     parser.add_argument('--parser_type', default='2nd', type=str, help='model name (1st/2nd)')
     parser.add_argument('--share_w2vec', default=False, type=bool, help='shared embeddings')
     parser.add_argument('--visual_mode', default=False, type=bool, help='run visual model')
+    parser.add_argument('--tiny', action='store_true', help='if testing will create tiny dataloaders')
+    parser.add_argument('--shuffle', action='store_true', help='shuffle training data')
+
     #
     parser.add_argument('--sem_dim', default=512, type=int, help='semantic rep. dim')
     parser.add_argument('--syn_dim', default=512, type=int, help='syntactic rep. dim')
@@ -161,21 +164,8 @@ if __name__ == '__main__':
 
     # Load data loaders
     data.set_constant(opt.visual_mode, opt.max_length)
-    if opt.tiny:
-        train_loader, val_loader = data.get_tiny_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, sampler=sampler)
-    elif opt.batch_size < 5:
-        train_loader, val_loader = data.get_train_iters(
-            opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, sampler=sampler
-        )
-    else:
-        train_loader = data.get_eval_iter(
-            opt.data_path, opt.prefix + "train", vocab, opt.batch_size,
-            nworker=opt.workers, shuffle=False, sampler=sampler, loadimg=opt.visual_mode
-        )
-        val_loader = data.get_eval_iter(
-            opt.data_path, opt.prefix + "val", vocab, int(opt.batch_size / 2) + 1,
-            nworker=opt.workers, shuffle=False, sampler=None, loadimg=opt.visual_mode
-        )
+    train_loader = data.get_tiny_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, shuffle=opt.shuffle, sampler=sampler, split='train', tiny=opt.tiny)
+    val_loader = data.get_tiny_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, shuffle=False, sampler=None, split='val', tiny=opt.tiny)
 
     save_checkpoint({
         'epoch': -1,
