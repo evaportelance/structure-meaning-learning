@@ -89,7 +89,6 @@ if __name__ == '__main__':
                         help='number of training epochs')
     parser.add_argument('--batch_size', default=5, type=int,
                         help='size of a training mini-batch')
-    parser.add_argument('--tiny', action='store_true')
     parser.add_argument('--grad_clip', default=3., type=float,
                         help='gradient clipping threshold')
     parser.add_argument('--lr', default=.001, type=float,

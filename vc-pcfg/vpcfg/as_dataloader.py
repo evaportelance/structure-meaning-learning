@@ -143,7 +143,7 @@ class DataLoader(data.Dataset):
         self.ids_captions_spans = list()
         max_length = TXT_MAX_LENGTH
         indexes, removed, idx = list(), list(), -1
-        with open(os.path.join(data_path, f'{data_split}_caps.json'), 'r') as f1 and open(os.path.join(data_path, f'{data_split}.id'), 'r') as f2:
+        with open(os.path.join(data_path, f'{data_split}_caps.json'), 'r') as f1, open(os.path.join(data_path, f'{data_split}.id'), 'r') as f2:
             for line, img_id in zip(f1.readlines(), f2.readlines()):
                 if tiny and idx > 32 :
                     break
@@ -163,7 +163,7 @@ class DataLoader(data.Dataset):
         if load_img:
             self.images = np.load(os.path.join(data_path, 'all_resn-152.npy'))
         else:
-            self.images = np.zeros(10020, img_dim))
+            self.images = np.zeros(10020, img_dim)
 
     def _shuffle(self):
         indice = torch.randperm(self.length).tolist()
