@@ -163,8 +163,8 @@ if __name__ == '__main__':
 
     # Load data loaders
     data.set_constant(opt.visual_mode, opt.max_length)
-    train_loader = data.get_tiny_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, shuffle=opt.shuffle, sampler=sampler, split='train', tiny=opt.tiny)
-    val_loader = data.get_tiny_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, shuffle=False, sampler=None, split='val', tiny=opt.tiny)
+    train_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, shuffle=opt.shuffle, sampler=sampler, split='train', tiny=opt.tiny)
+    val_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, loadimg=opt.visual_mode, shuffle=False, sampler=None, split='val', tiny=opt.tiny)
 
     save_checkpoint({
         'epoch': -1,

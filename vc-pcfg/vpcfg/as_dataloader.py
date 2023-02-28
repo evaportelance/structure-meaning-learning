@@ -157,13 +157,13 @@ class DataLoader(data.Dataset):
                 indexes.append(idx)
         self.length = len(self.ids_captions_spans)
         self.im_div = TXT_IMG_DIVISOR
-        echo("removed idx: ")
-        echo(removed)
+        print("removed idx: ")
+        print(removed)
 
         if load_img:
             self.images = np.load(os.path.join(data_path, 'all_resn-152.npy'))
         else:
-            self.images = np.zeros(10020, img_dim)
+            self.images = np.zeros((10020, img_dim))
 
     def _shuffle(self):
         indice = torch.randperm(self.length).tolist()
