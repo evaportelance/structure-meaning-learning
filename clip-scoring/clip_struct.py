@@ -1,14 +1,16 @@
+import argparse
+from tqdm import tqdm
 from PIL import Image
+import torch
 import numpy as np
 from transformers import CLIPProcessor, CLIPModel
-from .data import get_winoground_data
+from utils.data import get_winoground_data
 
 import requests
 
 # GLOBAL
 g_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 g_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-g_model.test()
 
 def get_performance(scores):
     def text_correct(result):
@@ -36,7 +38,7 @@ def get_performance(scores):
     return text_score, image_score, group_score
 
 def get_similarity_score(text, image):
-    input = g_processor(text=text, image=image, return_tensors="pt")
+    input = g_processor(text=[text], images=[image], return_tensors="pt")
     output = g_model(**input)
     score = output.logits_per_image.item()
     return score
@@ -58,7 +60,7 @@ def get_multiconstituent_score(id, images, trees):
     constituents0_i0_scores = []
     constituents0_i1_scores = []
     constituents1_i0_scores = []
-    constituents1_i0_scores = []
+    constituents1_i1_scores = []
     const1_scores = []
     for c0 in constituents0:
         score_c0_i0 = get_similarity_score(c0, images[0])
@@ -79,11 +81,13 @@ def get_multiconstituent_score(id, images, trees):
 def get_winoground_scores(wino_dataloader):
     wino_nostruct_scores = list()
     wino_struct_scores = list()
-    for i, example in enumerate(wino_dataloader):
+    print('Number of examples: '+str(len(wino_dataloader)))
+    for i in tqdm(range(len(wino_dataloader))):
+        example = wino_dataloader[i]
         id = example['id']
         images = example['images']
         captions = example['captions']
-        constituents = example['trees']
+        trees = example['trees']
 
         nostruct_score = get_constituent_score(id, images, captions)
         struct_scores = get_multiconstituent_score(id, images, trees)
@@ -109,11 +113,14 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
+    print('Creating winoground dataset with parses...')
     wino_dataloader = get_winoground_data(args)
     #abstractscenes_dataloader = get_abstractscenes_data(args)
 
+    print('Getting winoground scores with and without parses...')
     wino_nostruct_scores, wino_struct_scores = get_winoground_scores(wino_dataloader)
-
+    
+    print('Getting winoground performance and writting results...')
     nostruct_text_score, nostruct_image_score, nostruct_group_score = get_performance(wino_nostruct_scores)
     struct_text_score, struct_image_score, struct_group_score = get_performance(wino_struct_scores)
     with open(args.ofile, 'w') as f:

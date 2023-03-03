@@ -1,6 +1,6 @@
 from datasets import load_dataset
 import spacy, benepar
-from torch.utils.data import DataLoader
+import torch.utils.data as data
 
 
 class WinoDataLoader(data.Dataset):
@@ -20,8 +20,10 @@ class WinoDataLoader(data.Dataset):
         self.images.append((example['image_0'].convert("RGB"),example['image_1'].convert("RGB")))
         self.captions.append((example['caption_0'],example['caption_1']))
         parse0 = self.nlp(example['caption_0'])
-        parse1 = self.nlp(example['caption_1'])
+        parse0 = list(parse0.sents)[0]
         constituents0 = [str(x) for x in parse0._.constituents]
+        parse1 = self.nlp(example['caption_1'])
+        parse1 = list(parse1.sents)[0]
         constituents1 = [str(x) for x in parse1._.constituents]
         self.trees.append((constituents0, constituents1))
 
@@ -41,6 +43,6 @@ def get_winoground_data(args):
     nlp = spacy.load('en_core_web_md')
     nlp.add_pipe('benepar', config={'model': 'benepar_en3_large'})
     dataset = WinoDataLoader(nlp, winoground)
-    wino_dataloader = DataLoader(dataset=dataset, batch_size=1, shuffle=False)
+    #wino_dataloader = data.DataLoader(dataset=dataset, batch_size=1, shuffle=False)
 
-    return wino_dataloader
+    return dataset
