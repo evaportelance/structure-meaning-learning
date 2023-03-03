@@ -1,5 +1,7 @@
 import argparse
 from tqdm import tqdm
+import json
+from pathlib import Path
 from PIL import Image
 import torch
 import numpy as np
@@ -113,17 +115,22 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
+    result_dir = Path(args.odir)
+
     print('Creating winoground dataset with parses...')
     wino_dataloader = get_winoground_data(args)
     #abstractscenes_dataloader = get_abstractscenes_data(args)
 
     print('Getting winoground scores with and without parses...')
     wino_nostruct_scores, wino_struct_scores = get_winoground_scores(wino_dataloader)
-    
+    with open(str(result_dir / 'wino_nostruct_scores.json'), 'w') as f:
+        json.dump(wino_nostruct_scores, f)
+    with open(str(result_dir / 'wino_struct_scores.json'), 'w') as f:
+        json.dump(wino_struct_scores, f)
     print('Getting winoground performance and writting results...')
     nostruct_text_score, nostruct_image_score, nostruct_group_score = get_performance(wino_nostruct_scores)
     struct_text_score, struct_image_score, struct_group_score = get_performance(wino_struct_scores)
-    with open(args.ofile, 'w') as f:
+    with open(str(result_dir / args.ofile), 'w') as f:
         f.write('type, text score, image score, group score\n')
         f.write('no structure,'+str(nostruct_text_score) +', '+ str(nostruct_image_score) +', '+ str(nostruct_group_score)+'\n')
         f.write('with structure,'+str(struct_text_score) +', '+ str(struct_image_score) +', '+ str(struct_group_score)+'\n')
