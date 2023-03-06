@@ -29,10 +29,11 @@ class WinoDataLoader(data.Dataset):
         if not self.parse_diff:
             self.trees.append((constituents0, constituents1))
         else:
+            constituents0.append(example['caption_1'])
+            constituents1.append(example['caption_0'])
             constituents0_diff = list(set(constituents0).difference(set(constituents1)))
             constituents1_diff = list(set(constituents1).difference(set(constituents0)))
             self.trees.append((constituents0_diff, constituents1_diff))
-
     def __getitem__(self, index):
         id = self.ids[index]
         captions = self.captions[index]

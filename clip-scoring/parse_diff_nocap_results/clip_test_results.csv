@@ -1,0 +1,3 @@
+type, text score, image score, group score
+no structure,0.3075, 0.1025, 0.0825
+with structure,0.2, 0.135, 0.0825
