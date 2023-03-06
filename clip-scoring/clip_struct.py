@@ -110,6 +110,7 @@ if __name__ == '__main__':
     parser.add_argument('--wino_token', default='0', type=str, help='Hugging face authorization token to download Winoground')
     parser.add_argument('--odir', default='./', type=str, help='filename for results')
     parser.add_argument('--ofile', default='clip_test_results.csv', type=str, help='filename for results')
+    parser.add_argument('--parse_diff', action='store_true', help='use parse differences')
     parser.add_argument('--seed', default=30, type=int, help='random seed to use')
     args = parser.parse_args()
     np.random.seed(args.seed)
@@ -120,7 +121,7 @@ if __name__ == '__main__':
     print('Creating winoground dataset with parses...')
     wino_dataloader = get_winoground_data(args)
     #abstractscenes_dataloader = get_abstractscenes_data(args)
-    with open(str(result_dir / 'wino_parse_data.json'), 'w') as f:
+    with open(str(result_dir / 'wino_parse_diff_data.json'), 'w') as f:
         all_examples = {}
         for i in tqdm(range(len(wino_dataloader))):
             example = wino_dataloader[i]
@@ -131,16 +132,16 @@ if __name__ == '__main__':
             all_examples[id] = {'captions':captions, 'trees':trees}
         json.dump(all_examples, f)
 
-    # print('Getting winoground scores with and without parses...')
-    # wino_nostruct_scores, wino_struct_scores = get_winoground_scores(wino_dataloader)
-    # with open(str(result_dir / 'wino_nostruct_scores.json'), 'w') as f:
-    #     json.dump(wino_nostruct_scores, f)
-    # with open(str(result_dir / 'wino_struct_scores.json'), 'w') as f:
-    #     json.dump(wino_struct_scores, f)
-    # print('Getting winoground performance and writting results...')
-    # nostruct_text_score, nostruct_image_score, nostruct_group_score = get_performance(wino_nostruct_scores)
-    # struct_text_score, struct_image_score, struct_group_score = get_performance(wino_struct_scores)
-    # with open(str(result_dir / args.ofile), 'w') as f:
-    #     f.write('type, text score, image score, group score\n')
-    #     f.write('no structure,'+str(nostruct_text_score) +', '+ str(nostruct_image_score) +', '+ str(nostruct_group_score)+'\n')
-    #     f.write('with structure,'+str(struct_text_score) +', '+ str(struct_image_score) +', '+ str(struct_group_score)+'\n')
+    print('Getting winoground scores with and without parses...')
+    wino_nostruct_scores, wino_struct_scores = get_winoground_scores(wino_dataloader)
+    with open(str(result_dir / 'wino_nostruct_scores.json'), 'w') as f:
+        json.dump(wino_nostruct_scores, f)
+    with open(str(result_dir / 'wino_struct_scores.json'), 'w') as f:
+        json.dump(wino_struct_scores, f)
+    print('Getting winoground performance and writting results...')
+    nostruct_text_score, nostruct_image_score, nostruct_group_score = get_performance(wino_nostruct_scores)
+    struct_text_score, struct_image_score, struct_group_score = get_performance(wino_struct_scores)
+    with open(str(result_dir / args.ofile), 'w') as f:
+        f.write('type, text score, image score, group score\n')
+        f.write('no structure,'+str(nostruct_text_score) +', '+ str(nostruct_image_score) +', '+ str(nostruct_group_score)+'\n')
+        f.write('with structure,'+str(struct_text_score) +', '+ str(struct_image_score) +', '+ str(struct_group_score)+'\n')

@@ -4,9 +4,10 @@ import torch.utils.data as data
 
 
 class WinoDataLoader(data.Dataset):
-    def __init__(self, nlp, winoground):
+    def __init__(self, nlp, winoground, parse_diff):
         self.nlp = nlp
         self.winoground = winoground
+        self.parse_diff = parse_diff
         self.captions = list()
         self.images  = list()
         self.ids = list()
@@ -25,7 +26,12 @@ class WinoDataLoader(data.Dataset):
         parse1 = self.nlp(example['caption_1'])
         parse1 = list(parse1.sents)[0]
         constituents1 = [str(x) for x in parse1._.constituents]
-        self.trees.append((constituents0, constituents1))
+        if not self.parse_diff:
+            self.trees.append((constituents0, constituents1))
+        else:
+            constituents0_diff = list(set(constituents0).difference(set(constituents1)))
+            constituents1_diff = list(set(constituents1).difference(set(constituents0)))
+            self.trees.append((constituents0_diff, constituents1_diff))
 
     def __getitem__(self, index):
         id = self.ids[index]
@@ -42,7 +48,8 @@ def get_winoground_data(args):
     winoground = load_dataset('facebook/winoground', use_auth_token=args.wino_token)['test']
     nlp = spacy.load('en_core_web_md')
     nlp.add_pipe('benepar', config={'model': 'benepar_en3_large'})
-    dataset = WinoDataLoader(nlp, winoground)
+    parse_diff = args.parse_diff
+    dataset = WinoDataLoader(nlp, winoground, parse_diff)
     #wino_dataloader = data.DataLoader(dataset=dataset, batch_size=1, shuffle=False)
 
     return dataset
