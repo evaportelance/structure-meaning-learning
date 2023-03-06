@@ -120,27 +120,27 @@ if __name__ == '__main__':
     print('Creating winoground dataset with parses...')
     wino_dataloader = get_winoground_data(args)
     #abstractscenes_dataloader = get_abstractscenes_data(args)
+    with open(str(result_dir / 'wino_parse_data.json'), 'w') as f:
+        all_examples = {}
+        for i in tqdm(range(len(wino_dataloader))):
+            example = wino_dataloader[i]
+            id = example['id']
+            images = example['images']
+            captions = example['captions']
+            trees = example['trees']
+            all_examples[id] = {'captions':captions, 'trees':trees}
+        json.dump(all_examples, f)
 
-    print('Getting winoground scores with and without parses...')
-    wino_nostruct_scores, wino_struct_scores = get_winoground_scores(wino_dataloader)
-    with open(str(result_dir / 'wino_nostruct_scores.json'), 'w') as f:
-        json.dump(wino_nostruct_scores, f)
-    with open(str(result_dir / 'wino_struct_scores.json'), 'w') as f:
-        json.dump(wino_struct_scores, f)
-    print('Getting winoground performance and writting results...')
-    nostruct_text_score, nostruct_image_score, nostruct_group_score = get_performance(wino_nostruct_scores)
-    struct_text_score, struct_image_score, struct_group_score = get_performance(wino_struct_scores)
-    with open(str(result_dir / args.ofile), 'w') as f:
-        f.write('type, text score, image score, group score\n')
-        f.write('no structure,'+str(nostruct_text_score) +', '+ str(nostruct_image_score) +', '+ str(nostruct_group_score)+'\n')
-        f.write('with structure,'+str(struct_text_score) +', '+ str(struct_image_score) +', '+ str(struct_group_score)+'\n')
-
-
-#inputs = processor(text=["a photo of a cat", "a photo of a dog"], images=image, return_tensors="pt", padding=True)
-#outputs = model(**inputs)
-#outputs.text_embeds
-#outputs.image_embeds
-
-# outputs.logits_per_image here size 1*2 and  outputs.logits_per_text here size 2:1
-#logits_per_image = outputs.logits_per_image  # this is the image-text similarity score
-#probs = logits_per_image.softmax(dim=1)  # we can take the softmax to get the label probabilities
+    # print('Getting winoground scores with and without parses...')
+    # wino_nostruct_scores, wino_struct_scores = get_winoground_scores(wino_dataloader)
+    # with open(str(result_dir / 'wino_nostruct_scores.json'), 'w') as f:
+    #     json.dump(wino_nostruct_scores, f)
+    # with open(str(result_dir / 'wino_struct_scores.json'), 'w') as f:
+    #     json.dump(wino_struct_scores, f)
+    # print('Getting winoground performance and writting results...')
+    # nostruct_text_score, nostruct_image_score, nostruct_group_score = get_performance(wino_nostruct_scores)
+    # struct_text_score, struct_image_score, struct_group_score = get_performance(wino_struct_scores)
+    # with open(str(result_dir / args.ofile), 'w') as f:
+    #     f.write('type, text score, image score, group score\n')
+    #     f.write('no structure,'+str(nostruct_text_score) +', '+ str(nostruct_image_score) +', '+ str(nostruct_group_score)+'\n')
+    #     f.write('with structure,'+str(struct_text_score) +', '+ str(struct_image_score) +', '+ str(struct_group_score)+'\n')
