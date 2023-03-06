@@ -92,10 +92,10 @@ def get_winoground_scores(wino_dataloader):
         trees = example['trees']
 
         nostruct_score = get_constituent_score(id, images, captions)
-        struct_scores = get_multiconstituent_score(id, images, trees)
+        struct_score = get_multiconstituent_score(id, images, trees)
 
-    wino_nostruct_scores.append(nostruct_score)
-    wino_struct_scores.append(struct_score)
+        wino_nostruct_scores.append(nostruct_score)
+        wino_struct_scores.append(struct_score)
 
     return wino_nostruct_scores, wino_struct_scores
 
