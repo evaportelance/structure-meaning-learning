@@ -153,10 +153,8 @@ class ImageDatasetSrc(torch.utils.data.Dataset):
     """
     def __init__(self, cfg, data_list, transform=None):
         self.dataset = list()
-        for iline, line in enumerate(data_list):
+        for i, line in enumerate(data_list):
             self.dataset.append(line)
-            if iline < 8:
-                pass #print(caption, self.dataset[-1])
         self.transform_resnet = resnet_transform()
         self.transform_clip = clip_transform()
         self.length = len(self.dataset)
