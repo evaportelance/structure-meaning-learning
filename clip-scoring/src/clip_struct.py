@@ -1,6 +1,7 @@
 import argparse
 from tqdm import tqdm
 import json
+import pickle
 from pathlib import Path
 from PIL import Image
 import torch
@@ -113,7 +114,7 @@ if __name__ == '__main__':
     parser.add_argument('--ofile', default='clip_test_results.csv', type=str, help='filename for results')
     parser.add_argument('--finetune', action='store_true', help='to finetune clip first or not')
     parser.add_argument('--parse_diff', action='store_true', help='use parse differences')
-    parser.add_argument('--prop', default=0.7, type=int, help='proportion of data to use as train data versus test data')
+    parser.add_argument('--prop', default=0.7, type=float, help='proportion of data to use as train data versus test data')
     parser.add_argument('--seed', default=30, type=int, help='random seed to use')
     args = parser.parse_args()
     np.random.seed(args.seed)
@@ -152,10 +153,10 @@ if __name__ == '__main__':
     elif args.dataset == 'abstractscenes':
         print('Creating abstractscenes datasets with parses...')
         train_dataset, test_dataset = get_abstractscenes_data(args)
-        with open(str(result_dir / 'as_train_data.json'), 'w') as f:
-            json.dump(train_dataset, f)
-        with open(str(result_dir / 'as_test_data.json'), 'w') as f:
-            json.dump(test_dataset, f)
+        with open(str(result_dir / 'as_train_data.pkl'), 'wb') as f:
+            pickle.dump(train_dataset, f)
+        with open(str(result_dir / 'as_test_data.pkl'), 'wb') as f:
+            pickle.dump(test_dataset, f)
 
         print('Getting abstractscenes scores with and without parses...')
         as_nostruct_scores, as_struct_scores = get_scores(test_dataset)

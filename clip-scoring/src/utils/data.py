@@ -1,8 +1,10 @@
+import os
 from datasets import load_dataset
 import spacy, benepar
 import torch.utils.data as data
 from PIL import Image
 import random
+from tqdm import tqdm
 
 
 class WinoDataLoader(data.Dataset):
@@ -14,7 +16,7 @@ class WinoDataLoader(data.Dataset):
         self.images  = list()
         self.ids = list()
         self.trees = list()
-        for i, example in enumerate(self.winoground):
+        for i, example in tqdm(enumerate(self.winoground)):
             self.add(example)
         self.length = len(self.ids)
 
@@ -60,17 +62,18 @@ def get_winoground_data(args):
 
 
 class AbsScenesDataLoader(data.Dataset):
-    def __init__(self, data_dict, nlp):
-        self.img_ids = data_dict.keys()
+    def __init__(self, data_dict, nlp, parse_diff):
+        self.img_ids = list(data_dict.keys())
         self.data_dict = data_dict
         self.nlp = nlp
+        self.parse_diff = parse_diff
         self.captions = list()
         self.images  = list()
         self.ids = list()
         self.trees = list()
 
         self.id = 0
-        for img_id0, img_id1 in zip(self.img_ids[::2], self.img_ids[1::2].reverse()):
+        for img_id0, img_id1 in tqdm(zip(self.img_ids[::2],reversed(self.img_ids[1::2]))):
             self.add(img_id0, self.data_dict[img_id0], img_id1, self.data_dict[img_id1])
         self.length = len(self.ids)
 
@@ -125,17 +128,16 @@ def create_abstractscenes_caps_dict(root):
     caption_dict = dict()
     with open(f"{root}/all.id", 'r') as f1, open(f"{root}/all_caps.text", 'r') as f2:
         for id, cap in zip(f1.readlines(), f2.readlines()):
-            if caption_dict[int(id)]:
+            if int(id) in caption_dict:
                 caption_dict[int(id)]['captions'].append(cap)
             else:
-                caption_dict[int(id)] = {['captions':[cap]]}
-    return caption_list
+                caption_dict[int(id)] = {'captions':[cap]}
+    return caption_dict
 
 def create_data_split(data_dict, prop):
-    def coin_flip(prop)
-    train_dict() = dict()
-    test_dict() = dict()
-    ids = datadict.keys()
+    train_dict = dict()
+    test_dict = dict()
+    ids = data_dict.keys()
     for id in ids:
         if random.random() < prop:
             train_dict[id] = data_dict[id]
@@ -154,6 +156,6 @@ def get_abstractscenes_data(args):
         img = Image.open(img_file).convert("RGB")
         data_dict[id]['img'] = img
     train_dict, test_dict = create_data_split(data_dict, args.prop)
-    train_dataset = AbsScenesDataLoader(train_dict, nlp)
-    test_dataset = AbsScenesDataLoader(test_dict, nlp)
+    train_dataset = AbsScenesDataLoader(train_dict, nlp, args.parse_diff)
+    test_dataset = AbsScenesDataLoader(test_dict, nlp, args.parse_diff)
     return train_dataset, test_dataset
