@@ -112,6 +112,7 @@ if __name__ == '__main__':
     parser.add_argument('--as_caps_dir', default='../../preprocessed-data/abstractscenes', type=str, help='directory with AbstractScenes images')
     parser.add_argument('--odir', default='../results', type=str, help='directory fro writing results')
     parser.add_argument('--ofile', default='clip_test_results.csv', type=str, help='filename for results')
+    parser.add_argument('--eval_data', default='../../../as_test_data.pkl', type=str, help='path to eval data')
     parser.add_argument('--finetune', action='store_true', help='to finetune clip first or not')
     parser.add_argument('--parse_diff', action='store_true', help='use parse differences')
     parser.add_argument('--prop', default=0.7, type=float, help='proportion of data to use as train data versus test data')
@@ -151,12 +152,17 @@ if __name__ == '__main__':
             f.write('no structure,'+str(nostruct_text_score) +', '+ str(nostruct_image_score) +', '+ str(nostruct_group_score)+'\n')
             f.write('with structure,'+str(struct_text_score) +', '+ str(struct_image_score) +', '+ str(struct_group_score)+'\n')
     elif args.dataset == 'abstractscenes':
-        print('Creating abstractscenes datasets with parses...')
-        train_dataset, test_dataset = get_abstractscenes_data(args)
-        with open(str(result_dir / 'as_train_data.pkl'), 'wb') as f:
-            pickle.dump(train_dataset, f)
-        with open(str(result_dir / 'as_test_data.pkl'), 'wb') as f:
-            pickle.dump(test_dataset, f)
+        if args.eval_data not None:
+            print('Loading abstractscenes test datasets with parses...')
+            with open(str(args.eval_data), 'rb') as f:
+                test_dataset = pickle.load(test_dataset, f)
+        else:
+            print('Creating abstractscenes datasets with parses...')
+            train_dataset, test_dataset = get_abstractscenes_data(args)
+            with open(str(result_dir / 'as_train_data.pkl'), 'wb') as f:
+                pickle.dump(train_dataset, f)
+            with open(str(result_dir / 'as_test_data.pkl'), 'wb') as f:
+                pickle.dump(test_dataset, f)
 
         print('Getting abstractscenes scores with and without parses...')
         as_nostruct_scores, as_struct_scores = get_scores(test_dataset)
