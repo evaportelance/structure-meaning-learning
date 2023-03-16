@@ -30,14 +30,14 @@ class WinoDataLoader(data.Dataset):
         parse1 = self.nlp(example['caption_1'])
         parse1 = list(parse1.sents)[0]
         constituents1 = [str(x) for x in parse1._.constituents]
-        if not self.parse_diff:
-            self.trees.append((constituents0, constituents1))
-        else:
+        #if not self.parse_diff:
+        self.trees.append((constituents0, constituents1))
+        #else:
             #constituents0.append(example['caption_1'])
             #constituents1.append(example['caption_0'])
-            constituents0_diff = list(set(constituents0).difference(set(constituents1)))
-            constituents1_diff = list(set(constituents1).difference(set(constituents0)))
-            self.trees.append((constituents0_diff, constituents1_diff))
+        #    constituents0_diff = list(set(constituents0).difference(set(constituents1)))
+        #    constituents1_diff = list(set(constituents1).difference(set(constituents0)))
+        #    self.trees.append((constituents0_diff, constituents1_diff))
 
     def __getitem__(self, index):
         id = self.ids[index]

@@ -56,8 +56,13 @@ def get_constituent_score(id, images, captions):
     clip_score_c1_i1 = get_similarity_score(captions[1], images[1])
     return {"id" : id, "c0_i0": clip_score_c0_i0, "c0_i1": clip_score_c0_i1, "c1_i0": clip_score_c1_i0, "c1_i1": clip_score_c1_i1}
 
-def get_multiconstituent_score(id, images, trees):
+def get_multiconstituent_score(id, images, trees, parse_diff=False):
     constituents0, constituents1 = trees
+    if parse_diff:
+        constituents0_diff = list(set(constituents0).difference(set(constituents1)))
+        constituents1_diff = list(set(constituents1).difference(set(constituents0)))
+        constituents0 = constituents0_diff
+        constituents1 = constituents1_diff
     norm0 = len(constituents0)
     norm1 = len(constituents1)
     constituents0_i0_scores = []
@@ -93,7 +98,7 @@ def get_scores(dataloader):
         trees = example['trees']
 
         nostruct_score = get_constituent_score(id, images, captions)
-        struct_score = get_multiconstituent_score(id, images, trees)
+        struct_score = get_multiconstituent_score(id, images, trees, dataloader.parse_diff)
 
         nostruct_scores.append(nostruct_score)
         struct_scores.append(struct_score)
