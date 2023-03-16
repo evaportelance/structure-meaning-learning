@@ -7,7 +7,7 @@ from PIL import Image
 import torch
 import numpy as np
 from transformers import CLIPProcessor, CLIPModel
-from utils.data import get_winoground_data, get_abstractscenes_data
+from utils.data import get_winoground_data, get_abstractscenes_data, AbsScenesDataLoader
 
 import requests
 
@@ -152,10 +152,10 @@ if __name__ == '__main__':
             f.write('no structure,'+str(nostruct_text_score) +', '+ str(nostruct_image_score) +', '+ str(nostruct_group_score)+'\n')
             f.write('with structure,'+str(struct_text_score) +', '+ str(struct_image_score) +', '+ str(struct_group_score)+'\n')
     elif args.dataset == 'abstractscenes':
-        if args.eval_data not None:
+        if args.eval_data is not None:
             print('Loading abstractscenes test datasets with parses...')
             with open(str(args.eval_data), 'rb') as f:
-                test_dataset = pickle.load(test_dataset, f)
+                test_dataset = pickle.load(f)
         else:
             print('Creating abstractscenes datasets with parses...')
             train_dataset, test_dataset = get_abstractscenes_data(args)
