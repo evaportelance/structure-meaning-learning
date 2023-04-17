@@ -86,7 +86,7 @@ def get_multiconstituent_score(id, images, trees, parse_diff=False):
     clip_score_c1_i1 = np.sum(constituents1_i1_scores) /norm1
     return {"id" : id, "c0_i0": clip_score_c0_i0, "c0_i1": clip_score_c0_i1, "c1_i0": clip_score_c1_i0, "c1_i1": clip_score_c1_i1}
 
-def get_scores(dataloader):
+def get_scores(args, dataloader):
     nostruct_scores = list()
     struct_scores = list()
     print('Number of examples: '+str(len(dataloader)))
@@ -96,9 +96,8 @@ def get_scores(dataloader):
         images = example['images']
         captions = example['captions']
         trees = example['trees']
-
         nostruct_score = get_constituent_score(id, images, captions)
-        struct_score = get_multiconstituent_score(id, images, trees, dataloader.parse_diff)
+        struct_score = get_multiconstituent_score(id, images, trees, parse_diff = args.parse_diff)
 
         nostruct_scores.append(nostruct_score)
         struct_scores.append(struct_score)
@@ -144,7 +143,7 @@ if __name__ == '__main__':
             json.dump(all_examples, f)
 
         print('Getting winoground scores with and without parses...')
-        wino_nostruct_scores, wino_struct_scores = get_scores(wino_dataloader)
+        wino_nostruct_scores, wino_struct_scores = get_scores(args, wino_dataloader)
         with open(str(result_dir / 'wino_nostruct_scores.json'), 'w') as f:
             json.dump(wino_nostruct_scores, f)
         with open(str(result_dir / 'wino_struct_scores.json'), 'w') as f:
@@ -157,6 +156,7 @@ if __name__ == '__main__':
             f.write('no structure,'+str(nostruct_text_score) +', '+ str(nostruct_image_score) +', '+ str(nostruct_group_score)+'\n')
             f.write('with structure,'+str(struct_text_score) +', '+ str(struct_image_score) +', '+ str(struct_group_score)+'\n')
     elif args.dataset == 'abstractscenes':
+        print(args.parse_diff)
         if args.eval_data is not None:
             print('Loading abstractscenes test datasets with parses...')
             with open(str(args.eval_data), 'rb') as f:
@@ -170,7 +170,7 @@ if __name__ == '__main__':
                 pickle.dump(test_dataset, f)
 
         print('Getting abstractscenes scores with and without parses...')
-        as_nostruct_scores, as_struct_scores = get_scores(test_dataset)
+        as_nostruct_scores, as_struct_scores = get_scores(args, test_dataset)
         with open(str(result_dir / 'as_nostruct_scores.json'), 'w') as f:
             json.dump(as_nostruct_scores, f)
         with open(str(result_dir / 'as_struct_scores.json'), 'w') as f:

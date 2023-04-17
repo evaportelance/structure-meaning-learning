@@ -1,114 +1,29 @@
 Loading abstractscenes test datasets with parses...
-
-======== GPU REPORT ========
-
-==============NVSMI LOG==============
-
-Timestamp                                 : Mon Mar 13 16:20:36 2023
-Driver Version                            : 515.65.01
-CUDA Version                              : 11.7
-
-Attached GPUs                             : 1
-GPU 00000000:B1:00.0
-    Accounting Mode                       : Enabled
-    Accounting Mode Buffer Size           : 4000
-    Accounted Processes                   : None
-
-Mon Mar 13 16:20:36 2023       
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 515.65.01    Driver Version: 515.65.01    CUDA Version: 11.7     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|                               |                      |               MIG M. |
-|===============================+======================+======================|
-|   0  Quadro RTX 8000     On   | 00000000:B1:00.0 Off |                  Off |
-| 33%   26C    P8    36W / 260W |      1MiB / 49152MiB |      0%      Default |
-|                               |                      |                  N/A |
-+-------------------------------+----------------------+----------------------+
-                                                                               
-+-----------------------------------------------------------------------------+
-| Processes:                                                                  |
-|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-|        ID   ID                                                   Usage      |
-|=============================================================================|
-|  No running processes found                                                 |
-+-----------------------------------------------------------------------------+
-Loading abstractscenes test datasets with parses...
-
-======== GPU REPORT ========
-
-==============NVSMI LOG==============
-
-Timestamp                                 : Mon Mar 13 16:22:15 2023
-Driver Version                            : 515.65.01
-CUDA Version                              : 11.7
-
-Attached GPUs                             : 1
-GPU 00000000:81:00.0
-    Accounting Mode                       : Disabled
-    Accounting Mode Buffer Size           : 4000
-    Accounted Processes                   : None
-
-Mon Mar 13 16:22:15 2023       
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 515.65.01    Driver Version: 515.65.01    CUDA Version: 11.7     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|                               |                      |               MIG M. |
-|===============================+======================+======================|
-|   0  NVIDIA A100-SXM...  On   | 00000000:81:00.0 Off |                   On |
-| N/A   36C    P0   132W / 500W |   5488MiB / 81920MiB |     N/A      Default |
-|                               |                      |              Enabled |
-+-------------------------------+----------------------+----------------------+
-
-+-----------------------------------------------------------------------------+
-| MIG devices:                                                                |
-+------------------+----------------------+-----------+-----------------------+
-| GPU  GI  CI  MIG |         Memory-Usage |        Vol|         Shared        |
-|      ID  ID  Dev |           BAR1-Usage | SM     Unc| CE  ENC  DEC  OFA  JPG|
-|                  |                      |        ECC|                       |
-|==================+======================+===========+=======================|
-|  0    6   0   0  |     13MiB / 19968MiB | 28      0 |  2   0    1    0    0 |
-|                  |      0MiB / 32767MiB |           |                       |
-+------------------+----------------------+-----------+-----------------------+
-                                                                               
-+-----------------------------------------------------------------------------+
-| Processes:                                                                  |
-|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-|        ID   ID                                                   Usage      |
-|=============================================================================|
-|  No running processes found                                                 |
-+-----------------------------------------------------------------------------+
-Loading abstractscenes test datasets with parses...
 Getting abstractscenes scores with and without parses...
 Number of examples: 8895
-Loading abstractscenes test datasets with parses...
-Getting abstractscenes scores with and without parses...
-Number of examples: 8895
+Getting abstractscenes performance and writting results...
 
 ======== GPU REPORT ========
 
 ==============NVSMI LOG==============
 
-Timestamp                                 : Mon Mar 13 23:57:25 2023
+Timestamp                                 : Fri Mar 17 20:59:29 2023
 Driver Version                            : 515.65.01
 CUDA Version                              : 11.7
 
 Attached GPUs                             : 1
-GPU 00000000:A4:00.0
+GPU 00000000:43:00.0
     Accounting Mode                       : Enabled
     Accounting Mode Buffer Size           : 4000
     Accounted Processes
-        Process ID                        : 59411
+        Process ID                        : 18285
             GPU Utilization               : 0 %
             Memory Utilization            : 0 %
             Max memory usage              : 3431 MiB
-            Time                          : 15726159 ms
+            Time                          : 105662310 ms
             Is Running                    : 0
 
-Mon Mar 13 23:57:25 2023       
+Fri Mar 17 20:59:29 2023       
 +-----------------------------------------------------------------------------+
 | NVIDIA-SMI 515.65.01    Driver Version: 515.65.01    CUDA Version: 11.7     |
 |-------------------------------+----------------------+----------------------+
@@ -116,8 +31,8 @@ Mon Mar 13 23:57:25 2023
 | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
 |                               |                      |               MIG M. |
 |===============================+======================+======================|
-|   0  Quadro RTX 8000     On   | 00000000:A4:00.0 Off |                  Off |
-| 33%   28C    P8    30W / 260W |      1MiB / 49152MiB |      0%      Default |
+|   0  Quadro RTX 8000     On   | 00000000:43:00.0 Off |                  Off |
+| 33%   37C    P8    32W / 260W |      1MiB / 49152MiB |     48%      Default |
 |                               |                      |                  N/A |
 +-------------------------------+----------------------+----------------------+
                                                                                
@@ -128,94 +43,7 @@ Mon Mar 13 23:57:25 2023
 |=============================================================================|
 |  No running processes found                                                 |
 +-----------------------------------------------------------------------------+
-
-======== GPU REPORT ========
-
-==============NVSMI LOG==============
-
-Timestamp                                 : Tue Mar 14 08:21:29 2023
-Driver Version                            : 515.65.01
-CUDA Version                              : 11.7
-
-Attached GPUs                             : 1
-GPU 00000000:C3:00.0
-    Accounting Mode                       : Enabled
-    Accounting Mode Buffer Size           : 4000
-    Accounted Processes
-        Process ID                        : 19572
-            GPU Utilization               : 0 %
-            Memory Utilization            : 0 %
-            Max memory usage              : 3551 MiB
-            Time                          : 0 ms
-            Is Running                    : 1
-
-Tue Mar 14 08:21:30 2023       
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 515.65.01    Driver Version: 515.65.01    CUDA Version: 11.7     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|                               |                      |               MIG M. |
-|===============================+======================+======================|
-|   0  NVIDIA RTX A6000    On   | 00000000:C3:00.0 Off |                  Off |
-| 30%   26C    P8    30W / 300W |   3554MiB / 49140MiB |      0%      Default |
-|                               |                      |                  N/A |
-+-------------------------------+----------------------+----------------------+
-                                                                               
-+-----------------------------------------------------------------------------+
-| Processes:                                                                  |
-|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-|        ID   ID                                                   Usage      |
-|=============================================================================|
-|    0   N/A  N/A     19572      C   python                           3551MiB |
-+-----------------------------------------------------------------------------+
-Loading abstractscenes test datasets with parses...
-
-======== GPU REPORT ========
-
-==============NVSMI LOG==============
-
-Timestamp                                 : Tue Mar 14 08:24:41 2023
-Driver Version                            : 515.65.01
-CUDA Version                              : 11.7
-
-Attached GPUs                             : 1
-GPU 00000000:C1:00.0
-    Accounting Mode                       : Disabled
-    Accounting Mode Buffer Size           : 4000
-    Accounted Processes                   : None
-
-Tue Mar 14 08:24:41 2023       
-+-----------------------------------------------------------------------------+
-| NVIDIA-SMI 515.65.01    Driver Version: 515.65.01    CUDA Version: 11.7     |
-|-------------------------------+----------------------+----------------------+
-| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
-| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
-|                               |                      |               MIG M. |
-|===============================+======================+======================|
-|   0  NVIDIA A100-SXM...  On   | 00000000:C1:00.0 Off |                   On |
-| N/A   30C    P0    85W / 500W |   4724MiB / 81920MiB |     N/A      Default |
-|                               |                      |              Enabled |
-+-------------------------------+----------------------+----------------------+
-
-+-----------------------------------------------------------------------------+
-| MIG devices:                                                                |
-+------------------+----------------------+-----------+-----------------------+
-| GPU  GI  CI  MIG |         Memory-Usage |        Vol|         Shared        |
-|      ID  ID  Dev |           BAR1-Usage | SM     Unc| CE  ENC  DEC  OFA  JPG|
-|                  |                      |        ECC|                       |
-|==================+======================+===========+=======================|
-|  0   10   0   0  |      6MiB /  9728MiB | 14      0 |  1   0    0    0    0 |
-|                  |      0MiB / 16383MiB |           |                       |
-+------------------+----------------------+-----------+-----------------------+
-                                                                               
-+-----------------------------------------------------------------------------+
-| Processes:                                                                  |
-|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
-|        ID   ID                                                   Usage      |
-|=============================================================================|
-|  No running processes found                                                 |
-+-----------------------------------------------------------------------------+
+True
 Loading abstractscenes test datasets with parses...
 Getting abstractscenes scores with and without parses...
 Number of examples: 8895
@@ -225,23 +53,23 @@ Getting abstractscenes performance and writting results...
 
 ==============NVSMI LOG==============
 
-Timestamp                                 : Wed Mar 15 15:54:22 2023
+Timestamp                                 : Tue Mar 21 06:53:47 2023
 Driver Version                            : 515.65.01
 CUDA Version                              : 11.7
 
 Attached GPUs                             : 1
-GPU 00000000:82:00.0
+GPU 00000000:15:00.0
     Accounting Mode                       : Enabled
     Accounting Mode Buffer Size           : 4000
     Accounted Processes
-        Process ID                        : 23747
+        Process ID                        : 8672
             GPU Utilization               : 0 %
             Memory Utilization            : 0 %
             Max memory usage              : 3605 MiB
-            Time                          : 101886306 ms
+            Time                          : 70753062 ms
             Is Running                    : 0
 
-Wed Mar 15 15:54:23 2023       
+Tue Mar 21 06:53:47 2023       
 +-----------------------------------------------------------------------------+
 | NVIDIA-SMI 515.65.01    Driver Version: 515.65.01    CUDA Version: 11.7     |
 |-------------------------------+----------------------+----------------------+
@@ -249,8 +77,8 @@ Wed Mar 15 15:54:23 2023
 | Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
 |                               |                      |               MIG M. |
 |===============================+======================+======================|
-|   0  Tesla V100-PCIE...  Off  | 00000000:82:00.0 Off |                    0 |
-| N/A   40C    P0    41W / 250W |      0MiB / 16384MiB |     68%      Default |
+|   0  Tesla V100-SXM2...  On   | 00000000:15:00.0 Off |                    0 |
+| N/A   30C    P0    66W / 300W |      0MiB / 32768MiB |     46%      Default |
 |                               |                      |                  N/A |
 +-------------------------------+----------------------+----------------------+
                                                                                
