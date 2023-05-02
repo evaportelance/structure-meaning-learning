@@ -10,4 +10,5 @@
 
 module load anaconda/3
 conda activate py39-to113
-python ./clip_finetune.py --experiment_name "struct-finetune" --num_epochs 2 --seed 421 --with_struct_loss
+python ./clip_finetune.py --experiment_name "struct-finetune10" --num_epochs 10 --seed 421 --with_struct_loss 
+

@@ -78,7 +78,7 @@ class AbsScenesDataLoader(data.Dataset):
         self.length = len(self.ids)
 
     def add(self, img_id0, data0, img_id1, data1):
-        for cap0, cap1 in zip(data0['captions'], data1['captions']):
+        for cap0, cap1 in zip(data0['cap'], data1['cap']):
             id = self.id
             self.ids.append(self.id)
             self.id += 1
@@ -129,9 +129,9 @@ def create_abstractscenes_caps_dict(root):
     with open(f"{root}/all.id", 'r') as f1, open(f"{root}/all_caps.text", 'r') as f2:
         for id, cap in zip(f1.readlines(), f2.readlines()):
             if int(id) in caption_dict:
-                caption_dict[int(id)]['captions'].append(cap)
+                caption_dict[int(id)]['cap'].append(cap)
             else:
-                caption_dict[int(id)] = {'captions':[cap]}
+                caption_dict[int(id)] = {'cap':[cap]}
     return caption_dict
 
 def create_data_split(data_dict, prop):

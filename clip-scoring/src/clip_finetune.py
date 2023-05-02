@@ -26,12 +26,12 @@ def get_args():
     parser.add_argument('--result_dir', default='../results/abstractscenes',
                         help='directory where model, log files and eval results will be saved')
     parser.add_argument('--experiment_name', default='test', help='name of the experiment directory where model, log files and eval results will be stored')
-    parser.add_argument('--as_img_dir', default='../../../data/AbstractScenes_v1.1/RenderedScenes', type=str, help='directory with AbstractScenes images')
+    parser.add_argument('--as_img_dir', default='../../../AbstractScenes_v1.1/RenderedScenes', type=str, help='directory with AbstractScenes images')
     parser.add_argument('--prop', default=0.7, type=float, help='proportion of data to use as train data versus test data')
     parser.add_argument('--preprocessed_data', action='store_true', help='use existing preprocessed data')
-    parser.add_argument('--preprocessing_num_workers', default=4, help='number of persistent workers for data preprocessing')
+    parser.add_argument('--preprocessing_num_workers', default=1, help='number of persistent workers for data preprocessing')
     parser.add_argument('--parse_diff', action='store_true', help='use parse differences for eval')
-
+    parser.add_argument('--tiny', action='store_true', help='create tiny datasets for testing')
     parser.add_argument('--with_struct_loss', action='store_true', help='use constituent contrastive loss')
     parser.add_argument('--max_length', type=int, default=50, help='max caption length')
     parser.add_argument('--lr', default='5e-5', type=float,
@@ -46,14 +46,13 @@ def get_args():
     return args
 
 
-class AbsScenesDataset(data.Dataset):
-    def __init__(self, ids, images, captions, trees, max_length, processor):
+class AbsScenesDataset(torch.utils.data.Dataset):
+    def __init__(self, ids, images, captions, trees, max_length):
         self.ids = ids
         self.images  = images
         self.captions = captions
         self.trees = trees
         self.max_length = max_length
-        self.processor = processor
         self.length = len(self.ids)
 
 
@@ -76,7 +75,7 @@ class AbsScenesDataset(data.Dataset):
 def collate_nostruct_fn(data):
     zipped_data = list(zip(*data))
     ids, images, captions, trees, max_length = zipped_data
-        images = torch.stack(images)
+    images = torch.stack(images)
     captions = g_processor.tokenizer(captions, max_length=max_length[0], padding="max_length", return_tensors="pt", truncation=True)
 
     batch = {
@@ -95,14 +94,13 @@ def collate_struct_fn(data):
     tree_lens = []
     tree_imgs = []
     for tree, img in zip(trees, images):
-        tree_lens.append(len(tree))
-        tree_imgs.append(img)
+        tree_imgs += [img]*len(tree)
         constituents = g_processor.tokenizer(tree, max_length=max_length[0], padding="max_length", return_tensors="pt", truncation=True)
-        tree_inputs.append(constituents["input_ids"])
-        tree_attention.append(constituents["attention_mask"])
+        tree_inputs += constituents["input_ids"]
+        tree_attention += constituents["attention_mask"]
     images =  torch.stack(tree_imgs)
-    input_ids = torch.reshape(tree_inputs, -1)
-    attention_mask = torch.reshape(tree_attention, -1)
+    input_ids = torch.stack(tree_inputs)
+    attention_mask = torch.stack(tree_attention)
 
     batch = {
         "pixel_values": images,
@@ -112,37 +110,46 @@ def collate_struct_fn(data):
 
     return batch
 
-def create_abstractscenes_datasets(args):
+def create_abstractscenes_datasets(args, data_path):
+    random.seed(args.seed)
+    nlp = spacy.load('en_core_web_md')
+    nlp.add_pipe('benepar', config={'model': 'benepar_en3_large'})
+
     def get_data(data_dict, nlp):
-        ids = data_dict.keys()
+        image_ids = data_dict.keys()
+        ids = []
         images = []
         captions = []
         trees =[]
         print("parsing captions...")
-        for id in tqdm(ids):
-            image, caption
-            images.append(data_dict[id]["img"])
-            captions.append(data_dict[id]["cap"])
-            parse = nlp(data_dict[id]["cap"])
-            parse = list(parse.sents)[0]
-            constituents = [str(x) for x in parse._.constituents]
-            trees.append(constituents)
+        for im_id in tqdm(image_ids):
+            i = 0
+            img = data_dict[im_id]["img"]
+            for cap in data_dict[im_id]["cap"]:
+                ids.append((im_id*10+i))
+                images.append(img)
+                captions.append(cap)
+                parse = nlp(cap)
+                parse = list(parse.sents)[0]
+                constituents = [str(x) for x in parse._.constituents]
+                trees.append(constituents)
+                i += 1
         return ids, images, captions, trees
 
-    random.seed(args.seed)
-    nlp = spacy.load('en_core_web_md')
-    nlp.add_pipe('benepar', config={'model': 'benepar_en3_large'})
     image_list = create_abstractscenes_img_list(args.as_img_dir)
     data_dict = create_abstractscenes_caps_dict(str(data_path))
     print("processing images...")
     for (id, img_file) in tqdm(image_list):
         img = Image.open(img_file).convert("RGB")
         img = g_processor.image_processor([img], return_tensors="pt")
-        data_dict[id]["img"] = torch.reshape(img, -1)
+        img = img['pixel_values']
+        data_dict[id]["img"] = torch.reshape(img, (3, 224, 224))
     train_dict, test_dict = create_data_split(data_dict, args.prop)
+    if args.tiny:
+        train_dict = dict(list(train_dict.items())[:32])
+        test_dict = dict(list(test_dict.items())[:6])
     ids, images, captions, trees = get_data(train_dict, nlp)
-    train_dataset = AbsScenesDataset(ids, images, captions, trees, args.max_length, processor)
-    ids, images, captions, trees = get_data(train_dict, nlp)
+    train_dataset = AbsScenesDataset(ids, images, captions, trees, args.max_length)
     test_dataloader = AbsScenesDataLoader(test_dict, nlp, args.parse_diff)
     return train_dataset, test_dataloader
 
@@ -156,18 +163,26 @@ def train(args, model, optimizer, train_dataloader, device):
     for epoch in range(0, args.num_epochs):
         print("Epoch: " + str(epoch))
         total_loss = 0
+        batch_n = 0
         for i, batch in tqdm(enumerate(train_dataloader)):
+            batch_n +=1
             optimizer.zero_grad()
-            batch = batch.to(device)
-            output = model(**batch, return_loss=True)
+            pixel_values = batch['pixel_values'].to(device)
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            output = model(pixel_values=pixel_values, input_ids=input_ids, attention_mask=attention_mask, return_loss=True)
             loss = output.loss
             total_loss += loss
             loss.backward()
             optimizer.step()
-            if (i+1) % 100 == 0:
-                avg_batch_loss = total_loss / 100
-                print("Average loss for 100 batches:" + str(avg_batch_loss))
-                total_loss = 0
+
+            #if batch_n % 50 == 0:
+                #avg_batch_loss = total_loss / batch_n
+                #print("Average loss for "+str(batch_n)+"  batches:" + str(avg_batch_loss))
+                #total_loss = 0
+                #batch_n = 0
+        avg_batch_loss = total_loss / batch_n
+        print("Average loss for "+str(batch_n)+"  batches:" + str(avg_batch_loss))
     return model
 
 ### EVALUATION ###
@@ -198,8 +213,11 @@ def get_performance(scores):
 
 def get_similarity_score(text, image, model):
     input = g_processor(text=[text], images=[image], return_tensors="pt")
-    torch.no_grad():
-        output = g_model(**input)
+    pixel_values = input['pixel_values'].to(model.device)
+    input_ids = input['input_ids'].to(model.device)
+    attention_mask = input['attention_mask'].to(model.device)
+    with  torch.no_grad():
+        output = model(pixel_values=pixel_values, input_ids=input_ids, attention_mask=attention_mask)
         score = output.logits_per_image.item()
     return score
 
@@ -207,10 +225,10 @@ def get_similarity_score(text, image, model):
 def get_constituent_score(id, images, captions, model):
   # Note that some images in winoground are RGBA and some are RGB. Need to convert all to RGB with .convert('RGB')
   # Note that we could run this example through CLIP as a batch, but I want to drive the point home that we get four independent image-caption scores for each example
-    clip_score_c0_i0 = get_similarity_score(captions[0], images[0])
-    clip_score_c1_i0 = get_similarity_score(captions[1], images[0])
-    clip_score_c0_i1 = get_similarity_score(captions[0], images[1])
-    clip_score_c1_i1 = get_similarity_score(captions[1], images[1])
+    clip_score_c0_i0 = get_similarity_score(captions[0], images[0], model)
+    clip_score_c1_i0 = get_similarity_score(captions[1], images[0], model)
+    clip_score_c0_i1 = get_similarity_score(captions[0], images[1], model)
+    clip_score_c1_i1 = get_similarity_score(captions[1], images[1], model)
     return {"id" : id, "c0_i0": clip_score_c0_i0, "c0_i1": clip_score_c0_i1, "c1_i0": clip_score_c1_i0, "c1_i1": clip_score_c1_i1}
 
 def get_multiconstituent_score(id, images, trees, model, parse_diff=False):
@@ -228,13 +246,13 @@ def get_multiconstituent_score(id, images, trees, model, parse_diff=False):
     constituents1_i1_scores = []
     const1_scores = []
     for c0 in constituents0:
-        score_c0_i0 = get_similarity_score(c0, images[0])
-        score_c0_i1 = get_similarity_score(c0, images[1])
+        score_c0_i0 = get_similarity_score(c0, images[0], model)
+        score_c0_i1 = get_similarity_score(c0, images[1], model)
         constituents0_i0_scores.append(score_c0_i0)
         constituents0_i1_scores.append(score_c0_i1)
     for c1 in constituents1:
-        score_c1_i0 = get_similarity_score(c1, images[0])
-        score_c1_i1 = get_similarity_score(c1, images[1])
+        score_c1_i0 = get_similarity_score(c1, images[0], model)
+        score_c1_i1 = get_similarity_score(c1, images[1], model)
         constituents1_i0_scores.append(score_c1_i0)
         constituents1_i1_scores.append(score_c1_i1)
     clip_score_c0_i0 = np.sum(constituents0_i0_scores) / norm0
@@ -278,11 +296,11 @@ def main():
 
     data_path = Path(args.data_dir)
     if args.preprocessed_data :
-        print('Loading abstractscenes test datasets with parses...')
+        print('Loading abstractscenes datasets with parses...')
         with open(str(data_path / 'as_test_data.pkl'), 'rb') as f:
-            test_dataloader = pickle.load(f)
+            test_dataloader = torch.load(f, map_location=torch.device('cpu'))
         with open(str(data_path / 'as_train_data.pkl'), 'rb') as f:
-            train_dataset = pickle.load(f)
+            train_dataset = torch.load(f, map_location=torch.device('cpu'))
     else:
         print('Creating abstractscenes datasets with parses...')
         train_dataset, test_dataloader = create_abstractscenes_datasets(args, data_path)
@@ -308,7 +326,7 @@ def main():
     torch.save(model, str(experiment_dir / "model.pt"))
 
     print('Getting abstractscenes scores with and without parses...')
-    as_nostruct_scores, as_struct_scores = get_scores(args, test_dataset)
+    as_nostruct_scores, as_struct_scores = get_scores(args, test_dataloader, model)
     with open(str(experiment_dir / 'as_nostruct_scores.json'), 'w') as f:
         json.dump(as_nostruct_scores, f)
     with open(str(experiment_dir / 'as_struct_scores.json'), 'w') as f:
