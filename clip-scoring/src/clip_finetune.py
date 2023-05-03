@@ -12,38 +12,73 @@ import spacy, benepar
 import torch.utils.data
 from PIL import Image
 import random
-from utils.data import AbsScenesDataLoader, create_abstractscenes_img_list, create_abstractscenes_caps_dict, create_data_split
+from utils.data import create_abstractscenes_img_list, create_data_split
 
 g_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', default='../../preprocessed-data/abstractscenes',
-                        help='file path for preprocessed data')
-    parser.add_argument('--result_dir', default='../results/abstractscenes',
-                        help='directory where model, log files and eval results will be saved')
+    parser.add_argument('--data_dir', default='../../preprocessed-data/abstractscenes', help='file path for preprocessed data')
+    parser.add_argument('--result_dir', default='../results/abstractscenes', help='directory where model, log files and eval results will be saved')
     parser.add_argument('--experiment_name', default='test', help='name of the experiment directory where model, log files and eval results will be stored')
     parser.add_argument('--as_img_dir', default='../../../AbstractScenes_v1.1/RenderedScenes', type=str, help='directory with AbstractScenes images')
     parser.add_argument('--prop', default=0.7, type=float, help='proportion of data to use as train data versus test data')
-    #parser.add_argument('--preprocessed_data', action='store_true', help='use existing preprocessed data')
     parser.add_argument('--preprocessing_num_workers', default=1, help='number of persistent workers for data preprocessing')
     parser.add_argument('--parse_diff', action='store_true', help='use parse differences for eval')
-    #parser.add_argument('--random_trees', action='store_true', help='use random parse trees')
-    #parser.add_argument('--permute_leaves', action='store_true', help='permute tree leaves')
     parser.add_argument('--tiny', action='store_true', help='create tiny datasets for testing')
-    #parser.add_argument('--with_struct_loss', action='store_true', help='use constituent contrastive loss')
     parser.add_argument('--max_length', type=int, default=50, help='max caption length')
-    parser.add_argument('--lr', default='5e-5', type=float,
-                        help='learning rate for AdamW optimizer')
-    parser.add_argument('--decay', default='0.1', type=float,
-                        help='weight decay for AdamW optimizer')
+    parser.add_argument('--lr', default='5e-5', type=float, help='learning rate for AdamW optimizer')
+    parser.add_argument('--decay', default='0.1', type=float, help='weight decay for AdamW optimizer')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_epochs', type=int, default=1)
     parser.add_argument('--seed', type=int, default=0)
-
     args = parser.parse_args()
     return args
 
+
+class AbsScenesTestDataLoader(data.Dataset):
+    def __init__(self, data_dict, parse_diff):
+        self.img_ids = list(data_dict.keys())
+        self.data_dict = data_dict
+        self.parse_diff = parse_diff
+        self.captions = list()
+        self.images  = list()
+        self.ids = list()
+        self.trees = list()
+        self.id = 0
+        for img_id0, img_id1 in tqdm(zip(self.img_ids[::2],reversed(self.img_ids[1::2]))):
+            self.add(img_id0, self.data_dict[img_id0], img_id1, self.data_dict[img_id1])
+        self.length = len(self.ids)
+    def add(self, img_id0, data0, img_id1, data1):
+        for cap_spans0, cap_spans1 in zip(data0[im_id0]["cap_spans"], data1[im_id1]["cap_spans"]):
+            id = self.id
+            self.ids.append(self.id)
+            self.id += 1
+            self.images.append((data0['img'], data1['img']))
+            cap0, spans0 = cap_spans0[0], cap_spans0[1]
+            cap1, spans1 = cap_spans0[0], cap_spans0[1]
+            self.captions.append((cap0, cap1))
+            leaves0 = cap0.split(' ')
+            leaves1 = cap1.split(' ')
+            constituents0 = get_constituents(spans0, leaves0, gold_spans=True) + leaves0
+            constituents1 = get_constituents(spans1, leaves1, gold_spans=True) + leaves0
+
+            if not self.parse_diff:
+                self.trees.append((constituents0, constituents1))
+            else:
+                #constituents0.append(example['caption_1'])
+                #constituents1.append(example['caption_0'])
+                constituents0_diff = list(set(constituents0).difference(set(constituents1)))
+                constituents1_diff = list(set(constituents1).difference(set(constituents0)))
+                self.trees.append((constituents0_diff, constituents1_diff))
+    def __getitem__(self, index):
+        id = self.ids[index]
+        captions = self.captions[index]
+        images = self.images[index]
+        trees = self.trees[index]
+        return {'id':id, 'captions':captions, 'images': images, 'trees':trees}
+    def __len__(self):
+        return self.length
 
 class AbsScenesDataset(torch.utils.data.Dataset):
     def __init__(self, ids, images, captions, trees, random_trees, random_leaf_trees, max_length):
@@ -55,8 +90,6 @@ class AbsScenesDataset(torch.utils.data.Dataset):
         self.random_leaf_trees = random_leaf_trees
         self.max_length = max_length
         self.length = len(self.ids)
-
-
     def __getitem__(self, index):
         id = self.ids[index]
         caption = self.captions[index]
@@ -65,10 +98,14 @@ class AbsScenesDataset(torch.utils.data.Dataset):
         random_tree = self.random_trees[index]
         random_leaf_tree = self.random_leaf_trees[index]
         return id, image, caption, tree, random_tree, random_leaf_trees, self.max_length
-
-
     def __len__(self):
         return self.length
+    def get_trees_overlap(self):
+        denominator = len(self.trees)
+        sum_overlap = 0
+        for tree, random_tree in zip(self.trees, self.random_trees):
+            sum_overlap += (len(set(tree).intersection(set(random_tree)))/len(tree))
+        return sum_overlap/denominator
 
 # #    def _shuffle(self):
 #         indice = torch.randperm(self.length).tolist()
@@ -80,13 +117,11 @@ def collate_nostruct_fn(data):
     ids, images, captions, trees, random_trees, random_leaf_trees, max_length = zipped_data
     images = torch.stack(images)
     captions = g_processor.tokenizer(captions, max_length=max_length[0], padding="max_length", return_tensors="pt", truncation=True)
-
     batch = {
         "pixel_values": images,
         "input_ids": captions["input_ids"],
         "attention_mask": captions["attention_mask"],
     }
-
     return batch
 
 def collate_struct_fn(data):
@@ -104,13 +139,11 @@ def collate_struct_fn(data):
     images =  torch.stack(tree_imgs)
     input_ids = torch.stack(tree_inputs)
     attention_mask = torch.stack(tree_attention)
-
     batch = {
         "pixel_values": images,
         "input_ids": input_ids,
         "attention_mask": attention_mask
     }
-
     return batch
 
 def collate_random_struct_fn(data):
@@ -128,13 +161,11 @@ def collate_random_struct_fn(data):
     images =  torch.stack(tree_imgs)
     input_ids = torch.stack(tree_inputs)
     attention_mask = torch.stack(tree_attention)
-
     batch = {
         "pixel_values": images,
         "input_ids": input_ids,
         "attention_mask": attention_mask
     }
-
     return batch
 
 def collate_random_leaf_struct_fn(data):
@@ -152,25 +183,37 @@ def collate_random_leaf_struct_fn(data):
     images =  torch.stack(tree_imgs)
     input_ids = torch.stack(tree_inputs)
     attention_mask = torch.stack(tree_attention)
-
     batch = {
         "pixel_values": images,
         "input_ids": input_ids,
         "attention_mask": attention_mask
     }
-
     return batch
+
+def create_abstractscenes_caps_dict(root):
+    caption_dict = dict()
+    with open(f"{root}/all.id", 'r') as f1, open(f"{root}/all_caps.json", 'r') as f2:
+        for line1, line2 in zip(f1, f2):
+            id = line1
+            data = json.loads(line2)
+            cap = data[0]
+            if int(id) in caption_dict:
+                caption_dict[int(id)]['cap'].append(cap)
+                caption_dict[int(id)]['cap_spans'].append(data)
+            else:
+                caption_dict[int(id)] = {'cap':[cap], 'cap_spans':[data]}
+    return caption_dict
 
 def random_tree_generator(leaves):
     length = len(leaves)
     indexes = [(i,i+1) for i in range(0, length)]
     spans = []
-    constituents =[leaves]
+    spans += indexes
     while len(indexes) > 1:
-        i = random.sample(range(0,len(indexes)))
+        i = random.choice(range(0,len(indexes)))
         if indexes[i][0] > 0:
             if indexes[i][1] < length:
-                if random.sample([0,1]) == 0:
+                if random.choice([0,1]) == 0:
                     new_span = (indexes[i][0], indexes[i+1][1])
                     indexes.insert(i, new_span)
                     indexes.pop(i+1)
@@ -191,14 +234,24 @@ def random_tree_generator(leaves):
             indexes.pop(i+1)
             indexes.pop(i+1)
         spans.append(new_span)
+    return spans
+
+def get_constituents(spans, leaves, gold_spans=False):
+    constituents = []
     for span in spans:
-        constituents.append(leaves[span[0]:span[1]])
-    return constituents, spans
+        if gold_spans:
+            words = [word for word in leaves[span[0]:(span[1]+1)]]
+        else:
+            words = [word for word in leaves[span[0]:span[1]]]
+        constituent = ' '.join(words)
+        constituents.append(constituent)
+    return constituents
+
 
 def create_abstractscenes_datasets(args, data_path):
     random.seed(args.seed)
-    nlp = spacy.load('en_core_web_md')
-    nlp.add_pipe('benepar', config={'model': 'benepar_en3_large'})
+    #nlp = spacy.load('en_core_web_md')
+    #nlp.add_pipe('benepar', config={'model': 'benepar_en3_large'})
     def get_data(data_dict, nlp):
         image_ids = data_dict.keys()
         ids = []
@@ -211,23 +264,23 @@ def create_abstractscenes_datasets(args, data_path):
         for im_id in tqdm(image_ids):
             i = 0
             img = data_dict[im_id]["img"]
-            for cap in data_dict[im_id]["cap"]:
+            for cap_spans in data_dict[im_id]["cap_spans"]:
+                cap, spans = cap_spans[0], cap_spans[1]
                 ids.append((im_id*10+i))
                 images.append(img)
                 captions.append(cap)
-                parse = nlp(cap)
-                tree = list(parse.sents)[0]
-                leaves = list(tree)
-                constituents, spans = random_tree_generator(leaves)
+                leaves = cap.split(' ')
+                constituents = get_constituents(spans, leaves, gold_spans=True)
+                trees.append(constituents+leaves)
+                spans = random_tree_generator(leaves)
+                constituents = get_constituents(spans, leaves)
                 random_trees.append(constituents)
                 random.shuffle(leaves)
-                constituents, spans = random_tree_generator(leaves)
+                spans = random_tree_generator(leaves)
+                constituents = get_constituents(spans, leaves)
                 random_leaf_trees.append(constituents)
-                constituents = [str(x) for x in tree._.constituents]
-                trees.append(constituents)
                 i += 1
         return ids, images, captions, trees, random_trees, random_leaf_trees
-
     image_list = create_abstractscenes_img_list(args.as_img_dir)
     data_dict = create_abstractscenes_caps_dict(str(data_path))
     print("processing images...")
@@ -242,9 +295,8 @@ def create_abstractscenes_datasets(args, data_path):
         test_dict = dict(list(test_dict.items())[:6])
     ids, images, captions, trees, random_trees, random_leaf_trees = get_data(train_dict, nlp)
     train_dataset = AbsScenesDataset(ids, images, captions, trees, random_trees, random_leaf_trees, args.max_length)
-    test_dataloader = AbsScenesDataLoader(test_dict, nlp, args.parse_diff)
+    test_dataloader = AbsScenesTestDataLoader(test_dict, args.parse_diff)
     return train_dataset, test_dataloader
-
 
 
 def train(args, model, optimizer, train_dataloader, device):
@@ -267,7 +319,6 @@ def train(args, model, optimizer, train_dataloader, device):
             total_loss += loss
             loss.backward()
             optimizer.step()
-
             #if batch_n % 50 == 0:
                 #avg_batch_loss = total_loss / batch_n
                 #print("Average loss for "+str(batch_n)+"  batches:" + str(avg_batch_loss))
@@ -364,6 +415,22 @@ def get_scores(args, dataloader, model):
     return nostruct_scores, struct_scores
 
 
+
+def evaluation(args, eval_dataloader, model):
+    denominator = len(eval_dataloader) * 2
+    correct_count = 0
+    with  torch.no_grad():
+        for i, batch in tqdm(enumerate(eval_dataloader)):
+            pixel_values = batch['pixel_values'].to(device)
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            output = model(pixel_values=pixel_values, input_ids=input_ids, attention_mask=attention_mask)
+            scores = output.logits_per_image
+            probs = scores.softmax(dim=1)
+            correct_count = correct_count + int(probs[0][0] > probs[0][1]) + int(probs[1][1] > probs[1][0])
+    return correct_count / denominator
+
+
 ### MAIN ###
 def main():
     args = get_args()
@@ -389,6 +456,7 @@ def main():
         pickle.dump(train_dataset, f)
     with open(str(data_path / 'as_test_data.pkl'), 'wb') as f:
         pickle.dump(test_dataloader, f)
+    print("Average tree overlap between gold and random: " + str(train_dataset.get_trees_overlap())
 
     def run_condition(condition):
         os.makedirs(str(experiment_dir / condition), exist_ok=True)
@@ -441,3 +509,30 @@ def main():
 
 if __name__=="__main__":
     main()
+
+# for cap in data_dict[im_id]["cap"]:
+#     cap = cap.strip()
+#     ids.append((im_id*10+i))
+#     images.append(img)
+#     captions.append(cap)
+#     parse = nlp(cap)
+#     tree = list(parse.sents)[0]
+#     leaves = list(tree)
+#     spans = random_tree_generator(leaves)
+    # constituents = []
+    # for span in spans:
+    #     words = [word.text for word in leaves[span[0]:span[1]]]
+    #     constituent = ' '.join(words)
+    #     constituents.append(constituent)
+#     random_trees.append(constituents)
+#     random.shuffle(leaves)
+#     spans = random_tree_generator(leaves)
+    # constituents = []
+    # for span in spans:
+    #     words = [word.text for word in leaves[span[0]:span[1]]]
+    #     constituent = ' '.join(words)
+    #     constituents.append(constituent)
+#     random_leaf_trees.append(constituents)
+#     constituents = [str(x) for x in tree._.constituents]
+#     trees.append(constituents)
+#     i += 1
