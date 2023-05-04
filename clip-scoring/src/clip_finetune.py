@@ -8,7 +8,7 @@ import numpy as np
 from transformers import CLIPProcessor, CLIPModel
 
 import os
-import spacy, benepar
+#import spacy, benepar
 import torch.utils.data
 from PIL import Image
 import random
@@ -56,13 +56,12 @@ class AbsScenesTestDataLoader(torch.utils.data.Dataset):
             self.id += 1
             self.images.append((data0['img'], data1['img']))
             cap0, spans0 = cap_spans0[0], cap_spans0[1]
-            cap1, spans1 = cap_spans0[0], cap_spans0[1]
+            cap1, spans1 = cap_spans1[0], cap_spans1[1]
             self.captions.append((cap0, cap1))
             leaves0 = cap0.split(' ')
             leaves1 = cap1.split(' ')
             constituents0 = get_constituents(spans0, leaves0, gold_spans=True) + leaves0
-            constituents1 = get_constituents(spans1, leaves1, gold_spans=True) + leaves0
-
+            constituents1 = get_constituents(spans1, leaves1, gold_spans=True) + leaves1
             if not self.parse_diff:
                 self.trees.append((constituents0, constituents1))
             else:
