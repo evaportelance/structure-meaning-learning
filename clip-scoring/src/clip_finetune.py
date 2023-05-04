@@ -36,7 +36,7 @@ def get_args():
     return args
 
 
-class AbsScenesTestDataLoader(data.Dataset):
+class AbsScenesTestDataLoader(torch.utils.data.Dataset):
     def __init__(self, data_dict, parse_diff):
         self.img_ids = list(data_dict.keys())
         self.data_dict = data_dict
@@ -50,7 +50,7 @@ class AbsScenesTestDataLoader(data.Dataset):
             self.add(img_id0, self.data_dict[img_id0], img_id1, self.data_dict[img_id1])
         self.length = len(self.ids)
     def add(self, img_id0, data0, img_id1, data1):
-        for cap_spans0, cap_spans1 in zip(data0[im_id0]["cap_spans"], data1[im_id1]["cap_spans"]):
+        for cap_spans0, cap_spans1 in zip(data0["cap_spans"], data1["cap_spans"]):
             id = self.id
             self.ids.append(self.id)
             self.id += 1
@@ -97,7 +97,7 @@ class AbsScenesDataset(torch.utils.data.Dataset):
         tree = self.trees[index]
         random_tree = self.random_trees[index]
         random_leaf_tree = self.random_leaf_trees[index]
-        return id, image, caption, tree, random_tree, random_leaf_trees, self.max_length
+        return id, image, caption, tree, random_tree, random_leaf_tree, self.max_length
     def __len__(self):
         return self.length
     def get_trees_overlap(self):
@@ -252,7 +252,7 @@ def create_abstractscenes_datasets(args, data_path):
     random.seed(args.seed)
     #nlp = spacy.load('en_core_web_md')
     #nlp.add_pipe('benepar', config={'model': 'benepar_en3_large'})
-    def get_data(data_dict, nlp):
+    def get_data(data_dict):
         image_ids = data_dict.keys()
         ids = []
         images = []
@@ -293,7 +293,7 @@ def create_abstractscenes_datasets(args, data_path):
     if args.tiny:
         train_dict = dict(list(train_dict.items())[:32])
         test_dict = dict(list(test_dict.items())[:6])
-    ids, images, captions, trees, random_trees, random_leaf_trees = get_data(train_dict, nlp)
+    ids, images, captions, trees, random_trees, random_leaf_trees = get_data(train_dict)
     train_dataset = AbsScenesDataset(ids, images, captions, trees, random_trees, random_leaf_trees, args.max_length)
     test_dataloader = AbsScenesTestDataLoader(test_dict, args.parse_diff)
     return train_dataset, test_dataloader
@@ -432,7 +432,46 @@ def evaluation(args, eval_dataloader, model):
 
 
 ### MAIN ###
-def main():
+def run_condition(condition, args, experiment_dir, train_dataset, test_dataloader, device):
+    os.makedirs(str(experiment_dir / condition), exist_ok=True)
+    torch.cuda.empty_cache()
+    model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+    model = model.to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-6, weight_decay=args.decay)
+    if condition == "baseline":
+        collate_fn = collate_nostruct_fn
+    elif condition == "control-random-trees":
+        collate_fn = collate_random_struct_fn
+    elif condition == "control-random-leaf-trees":
+        collate_fn = collate_random_leaf_struct_fn
+    elif condition == "target":
+        collate_fn = collate_struct_fn
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.preprocessing_num_workers,
+        persistent_workers=True,
+        drop_last=False,
+        collate_fn=collate_fn
+    )
+    model = train(args, model, optimizer, train_dataloader, device)
+    torch.save(model, str(experiment_dir / condition / "model.pt"))
+    print('Getting abstractscenes scores with and without parses...')
+    as_nostruct_scores, as_struct_scores = get_scores(args, test_dataloader, model)
+    with open(str(experiment_dir / condition / 'as_nostruct_scores.json'), 'w') as f:
+        json.dump(as_nostruct_scores, f)
+    with open(str(experiment_dir / condition / 'as_struct_scores.json'), 'w') as f:
+        json.dump(as_struct_scores, f)
+    print('Getting abstractscenes performance and writting results...')
+    nostruct_image_score = get_performance(as_nostruct_scores)
+    struct_image_score = get_performance(as_struct_scores)
+    with open(str(experiment_dir / condition / 'scores.csv'), 'w') as f:
+        f.write('type, image score\n')
+        f.write('no structure,'+ str(nostruct_image_score)+'\n')
+        f.write('with structure,'+ str(struct_image_score) +'\n')
+
+def run():
     args = get_args()
     experiment_dir = Path(args.result_dir) / args.experiment_name
     os.makedirs(str(experiment_dir), exist_ok=True)
@@ -443,72 +482,21 @@ def main():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     ### DATA LOADER CREATION ###
     data_path = Path(args.data_dir)
-    #if args.preprocessed_data :
-    #    print('Loading abstractscenes datasets with parses...')
-    #    with open(str(data_path / 'as_test_data.pkl'), 'rb') as f:
-    #        test_dataloader = torch.load(f, map_location=torch.device('cpu'))
-    #    with open(str(data_path / 'as_train_data.pkl'), 'rb') as f:
-    #        train_dataset = torch.load(f, map_location=torch.device('cpu'))
-    #else:
-    print('Creating abstractscenes datasets with parses...')
-    train_dataset, test_dataloader = create_abstractscenes_datasets(args, data_path)
+    print('Creating abstractscenes atasets with parses...')
+    train_dataset, test_dataloader =create_abstractscenes_datasets(args, data_path)
     with open(str(data_path / 'as_train_data.pkl'), 'wb') as f:
         pickle.dump(train_dataset, f)
     with open(str(data_path / 'as_test_data.pkl'), 'wb') as f:
         pickle.dump(test_dataloader, f)
-    print("Average tree overlap between gold and random: " + str(train_dataset.get_trees_overlap())
-
-    def run_condition(condition):
-        os.makedirs(str(experiment_dir / condition), exist_ok=True)
-        torch.cuda.empty_cache()
-        model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        model = model.to(device)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.98), eps=1e-6, weight_decay=args.decay)
-        if condition == "baseline":
-            collate_fn = collate_nostruct_fn
-        elif condition == "control-random-trees":
-            collate_fn = collate_random_struct_fn
-        elif condition == "control-random-leaf-trees":
-            collate_fn = collate_random_leaf_struct_fn
-        elif condition == "target":
-            collate_fn = collate_struct_fn
-
-        train_dataloader = torch.utils.data.DataLoader(
-            train_dataset,
-            batch_size=args.batch_size,
-            shuffle=False,
-            num_workers=args.preprocessing_num_workers,
-            persistent_workers=True,
-            drop_last=False,
-            collate_fn=collate_fn
-        )
-
-        model = train(args, model, optimizer, train_dataloader, device)
-        torch.save(model, str(experiment_dir / condition / "model.pt"))
-
-        print('Getting abstractscenes scores with and without parses...')
-        as_nostruct_scores, as_struct_scores = get_scores(args, test_dataloader, model)
-        with open(str(experiment_dir / condition / 'as_nostruct_scores.json'), 'w') as f:
-            json.dump(as_nostruct_scores, f)
-        with open(str(experiment_dir / condition / 'as_struct_scores.json'), 'w') as f:
-            json.dump(as_struct_scores, f)
-
-        print('Getting abstractscenes performance and writting results...')
-        nostruct_image_score = get_performance(as_nostruct_scores)
-        struct_image_score = get_performance(as_struct_scores)
-        with open(str(experiment_dir / condition / 'scores.csv'), 'w') as f:
-            f.write('type, image score\n')
-            f.write('no structure,'+ str(nostruct_image_score)+'\n')
-            f.write('with structure,'+ str(struct_image_score) +'\n')
-
-    run_condition("baseline")
-    run_condition("control-random-trees")
-    run_condition("control-random-leaf-trees")
-    run_condition("target")
+    print("Average tree overlap between gold and random: " + str(train_dataset.get_trees_overlap()))
+    run_condition("baseline",args, experiment_dir, train_dataset, test_dataloader, device)
+    run_condition("control-random-trees", args, experiment_dir, train_dataset, test_dataloader, device)
+    run_condition("control-random-leaf-trees", args, experiment_dir, train_dataset, test_dataloader, device)
+    run_condition("target", args, experiment_dir, train_dataset, test_dataloader, device)
 
 
 if __name__=="__main__":
-    main()
+    run()
 
 # for cap in data_dict[im_id]["cap"]:
 #     cap = cap.strip()
