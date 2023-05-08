@@ -493,9 +493,38 @@ def run():
     run_condition("control-random-leaf-trees", args, experiment_dir, train_dataset, test_dataloader, device)
     run_condition("target", args, experiment_dir, train_dataset, test_dataloader, device)
 
+def load_model_eval():
+        args = get_args()
+        experiment_dir = Path(args.result_dir) / args.experiment_name
+        os.makedirs(str(experiment_dir), exist_ok=True)
+        torch.manual_seed(args.seed)
+        random.seed(args.seed)
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        ### DATA LOADER CREATION ###
+        data_path = Path(args.data_dir)
+        print('Creating abstractscenes atasets with parses...')
+        train_dataset, test_dataloader =create_abstractscenes_datasets(args, data_path)
+        torch.cuda.empty_cache()
+        model = torch.load(experiment_dir / "model.pt")
+        model = model.to(device)
+        as_nostruct_scores, as_struct_scores = get_scores(args, test_dataloader, model)
+        with open(str(experiment_dir / condition / 'as_nostruct_scores.json'), 'w') as f:
+            json.dump(as_nostruct_scores, f)
+        with open(str(experiment_dir / condition / 'as_struct_scores.json'), 'w') as f:
+            json.dump(as_struct_scores, f)
+        print('Getting abstractscenes performance and writting results...')
+        nostruct_image_score = get_performance(as_nostruct_scores)
+        struct_image_score = get_performance(as_struct_scores)
+        with open(str(experiment_dir / condition / 'new_scores.csv'), 'w') as f:
+            f.write('type, image score\n')
+            f.write('no structure,'+ str(nostruct_image_score)+'\n')
+            f.write('with structure,'+ str(struct_image_score) +'\n')
+
 
 if __name__=="__main__":
-    run()
+    #run()
+    load_model_eval():
+
 
 # for cap in data_dict[im_id]["cap"]:
 #     cap = cap.strip()
