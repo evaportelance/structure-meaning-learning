@@ -488,7 +488,7 @@ def run():
     with open(str(data_path / 'as_test_data.pkl'), 'wb') as f:
         pickle.dump(test_dataloader, f)
     print("Average tree overlap between gold and random: " + str(train_dataset.get_trees_overlap()))
-    run_condition("baseline",args, experiment_dir, train_dataset, test_dataloader, device)
+    #run_condition("baseline",args, experiment_dir, train_dataset, test_dataloader, device)
     run_condition("control-random-trees", args, experiment_dir, train_dataset, test_dataloader, device)
     run_condition("control-random-leaf-trees", args, experiment_dir, train_dataset, test_dataloader, device)
     run_condition("target", args, experiment_dir, train_dataset, test_dataloader, device)
