@@ -328,22 +328,41 @@ def train(args, model, optimizer, train_dataloader, device):
     return model
 
 ### EVALUATION ###
+#def get_performance(scores):
+#    def image_correct(result):
+#        correct = 0
+#        if result["c0_i0"] > result["c0_i1"] :
+#            correct+=1
+#        if result["c1_i1"] > result["c1_i0"] :
+#            correct+=1
+#        return correct
+#    image_correct_count = 0
+#    for result in scores:
+#      image_correct_count += image_correct(result)
+#
+#    denominator = len(scores)*2
+#    image_score = image_correct_count/denominator
+#
+#    return image_score
+
 def get_performance(scores):
+    def text_correct(result):
+        return result["c0_i0"] > result["c1_i0"] and result["c1_i1"] > result["c0_i1"]
     def image_correct(result):
-        correct = 0
-        if result["c0_i0"] > result["c0_i1"] :
-            correct+=1
-        if result["c1_i1"] > result["c1_i0"] :
-            correct+=1
-        return correct
+        return result["c0_i0"] > result["c0_i1"] and result["c1_i1"] > result["c1_i0"]
+    def group_correct(result):
+        return image_correct(result) and text_correct(result)
+    text_correct_count = 0
     image_correct_count = 0
+    group_correct_count = 0
     for result in scores:
-      image_correct_count += image_correct(result)
-
-    denominator = len(scores)*2
+        text_correct_count += 1 if text_correct(result) else 0
+        image_correct_count += 1 if image_correct(result) else 0
+        group_correct_count += 1 if group_correct(result) else 0
+    denominator = len(scores)
     image_score = image_correct_count/denominator
-
     return image_score
+
 
 def get_similarity_score(text, image, model):
     input = g_processor(text=[text], images=[image], return_tensors="pt")
@@ -508,14 +527,10 @@ def load_model_eval():
         model = torch.load(experiment_dir / "model.pt")
         model = model.to(device)
         as_nostruct_scores, as_struct_scores = get_scores(args, test_dataloader, model)
-        with open(str(experiment_dir / condition / 'as_nostruct_scores.json'), 'w') as f:
-            json.dump(as_nostruct_scores, f)
-        with open(str(experiment_dir / condition / 'as_struct_scores.json'), 'w') as f:
-            json.dump(as_struct_scores, f)
         print('Getting abstractscenes performance and writting results...')
         nostruct_image_score = get_performance(as_nostruct_scores)
         struct_image_score = get_performance(as_struct_scores)
-        with open(str(experiment_dir / condition / 'new_scores.csv'), 'w') as f:
+        with open(str(experiment_dir / 'new_scores_old.csv'), 'w') as f:
             f.write('type, image score\n')
             f.write('no structure,'+ str(nostruct_image_score)+'\n')
             f.write('with structure,'+ str(struct_image_score) +'\n')
@@ -523,7 +538,7 @@ def load_model_eval():
 
 if __name__=="__main__":
     #run()
-    load_model_eval():
+    load_model_eval()
 
 
 # for cap in data_dict[im_id]["cap"]:
