@@ -207,7 +207,7 @@ def random_tree_generator(leaves):
     length = len(leaves)
     indexes = [(i,i+1) for i in range(0, length)]
     spans = []
-    spans += indexes
+    #spans += indexes
     while len(indexes) > 1:
         i = random.choice(range(0,len(indexes)))
         if indexes[i][0] > 0:
@@ -270,7 +270,8 @@ def create_abstractscenes_datasets(args, data_path):
                 captions.append(cap)
                 leaves = cap.split(' ')
                 constituents = get_constituents(spans, leaves, gold_spans=True)
-                trees.append(constituents+leaves)
+                #trees.append(constituents+leaves)
+                trees.append(constituents)
                 spans = random_tree_generator(leaves)
                 constituents = get_constituents(spans, leaves)
                 random_trees.append(constituents)
@@ -346,22 +347,28 @@ def train(args, model, optimizer, train_dataloader, device):
 #    return image_score
 
 def get_performance(scores):
-    def text_correct(result):
-        return result["c0_i0"] > result["c1_i0"] and result["c1_i1"] > result["c0_i1"]
-    def image_correct(result):
+    #def text_correct(result):
+    #    return result["c0_i0"] > result["c1_i0"] and result["c1_i1"] > result["c0_i1"]
+    def image_correct_old(result):
         return result["c0_i0"] > result["c0_i1"] and result["c1_i1"] > result["c1_i0"]
-    def group_correct(result):
-        return image_correct(result) and text_correct(result)
-    text_correct_count = 0
-    image_correct_count = 0
-    group_correct_count = 0
+    #def group_correct(result):
+    #    return image_correct(result) and text_correct(result)
+    def image_correct_new(result):
+        correct = 0
+        if result["c0_i0"] > result["c0_i1"] :
+            correct+=1
+        if result["c1_i1"] > result["c1_i0"] :
+            correct+=1
+        return correct
+    image_correct_count_old = 0
+    image_correct_count_new = 0
     for result in scores:
-        text_correct_count += 1 if text_correct(result) else 0
-        image_correct_count += 1 if image_correct(result) else 0
-        group_correct_count += 1 if group_correct(result) else 0
+        image_correct_count_old += 1 if image_correct(result) else 0
+        image_correct_count_new += image_correct_new(result)
     denominator = len(scores)
-    image_score = image_correct_count/denominator
-    return image_score
+    image_score_old = image_correct_count_old/denominator
+    image_score_new = image_correct_count_new/(denominator*2)
+    return image_score_new, image_score_old
 
 
 def get_similarity_score(text, image, model):
@@ -482,12 +489,14 @@ def run_condition(condition, args, experiment_dir, train_dataset, test_dataloade
     with open(str(experiment_dir / condition / 'as_struct_scores.json'), 'w') as f:
         json.dump(as_struct_scores, f)
     print('Getting abstractscenes performance and writting results...')
-    nostruct_image_score = get_performance(as_nostruct_scores)
-    struct_image_score = get_performance(as_struct_scores)
+    nostruct_image_score_new, nostruct_image_score_old = get_performance(as_nostruct_scores)
+    struct_image_score_new, struct_image_score_old = get_performance(as_struct_scores)
     with open(str(experiment_dir / condition / 'scores.csv'), 'w') as f:
-        f.write('type, image score\n')
-        f.write('no structure,'+ str(nostruct_image_score)+'\n')
-        f.write('with structure,'+ str(struct_image_score) +'\n')
+        f.write('type, eval, image score\n')
+        f.write('no structure, 1-2-result'+ str(nostruct_image_score_new)+'\n')
+        f.write('with structure, 1-2-result'+ str(struct_image_score_new) +'\n')
+        f.write('no structure, 2-2-result'+ str(nostruct_image_score_old)+'\n')
+        f.write('with structure, 2-2-result'+ str(struct_image_score_old) +'\n')
 
 def run():
     args = get_args()
@@ -537,8 +546,8 @@ def load_model_eval():
 
 
 if __name__=="__main__":
-    #run()
-    load_model_eval()
+    run()
+    #load_model_eval()
 
 
 # for cap in data_dict[im_id]["cap"]:
