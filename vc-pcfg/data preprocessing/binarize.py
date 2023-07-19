@@ -48,7 +48,7 @@ def save_labeled_tree(args):
     with open(args.ifile, "r") as fr, \
         open(args.ofile, "w") as fw:
         for tree in fr:
-            tree = tree.strip()
+            tree = tree.strip().replace("(. .)", "")
             action = get_actions(tree)
             tags, sent, sent_lower = get_tags_tokens_lowercase(tree)
             gold_span, binary_actions = get_nonbinary_spans_label(action)
