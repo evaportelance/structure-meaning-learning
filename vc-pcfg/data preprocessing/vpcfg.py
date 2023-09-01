@@ -100,7 +100,7 @@ if __name__ == '__main__':
     # non-binarized gold parses
     file = str(args.ofile)
     args.ifile = file
-    args.ofile = file[:-7] + "_gold_caps.json"
+    args.ofile = file[:-5] + "_gold_caps.json"
     save_labeled_tree(args)
 
     # binarized gold parses
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     main_save_text(args)
 
     # vocabulary
-    #if "train" in args.ofile:
-    #    args.ifile = args.ofile
-    #    args.ofile = args.ifile.rsplit("/", 1)[0] + "/data.dict"
-    #    main_make_vocab(args, vocab_size=args.vocab_size)
+    if "train" in args.ofile:
+        args.ifile = args.ofile
+        args.ofile = args.ifile.rsplit("/", 1)[0] + "/data.dict"
+        main_make_vocab(args, vocab_size=args.vocab_size)

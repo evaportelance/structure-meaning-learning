@@ -170,14 +170,10 @@ def get_tags_tokens_lowercase(line):
     output_lowercase = []
     for terminal in output:
         terminal_split = terminal.split()
-        if len(terminal_split) == 2: # each terminal contains a POS tag and word
-            output_tags.append(terminal_split[0])
-            output_tokens.append(terminal_split[1])
-            output_lowercase.append(terminal_split[1].lower())
-        else:
-            output_tags.append(terminal_split[0])
-            output_tokens.append('[PAD]')
-            output_lowercase.append('[PAD]')
+        assert len(terminal_split) == 2 # each terminal contains a POS tag and word
+        output_tags.append(terminal_split[0])
+        output_tokens.append(terminal_split[1])
+        output_lowercase.append(terminal_split[1].lower())
     return [output_tags, output_tokens, output_lowercase]
 
 def get_nonterminal(line, start_idx):

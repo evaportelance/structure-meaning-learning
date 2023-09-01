@@ -1,29 +1,43 @@
-import time
-import numpy as np
+# The joint model can be decomposed of two parts 
+# Grammar induction model + LM sharing one embedding layer
 
 import torch
+import datasets
+import time
+import numpy as np
+import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch_struct import SentCFG
-
 from . import utils
 from .module import CompoundCFG
+
+data = '/Users/xdchen/OneDrive - McGill University/babylm-joint-learning/preprocessed-data/abstractscenes/all_caps.json'
+
+# def construct_dataset(dpath, tokenizer):
+#     # read in data as list
+#     with open(dpath) as f:
+#         lines = f.readlines()
+#     lines = [l.strip() for l in lines]
+#     # convert to dict
+#     dataset = {'text': lines, 
+#                'tokens': [tokenizer.encode(l).ids for l in lines]}
+# # important
+# custom_train_data = datasets.Dataset.from_dict(custom_train_data)
+
 
 class VGCPCFGs(object):
     NS_PARSER = 'parser'
     NS_OPTIMIZER = 'optimizer'
-    
-    def __init__(self, opt, logger, pretrained_embed, tokenizer):
-    #def __init__(self, opt, vocab, logger, pretrained_embed):
+
+    def __init__(self, opt, vocab, logger, pretrained_embed):
         # pretrained_embed is the shared embedding layer
         self.niter = 0
-        self.tokenizer = tokenizer
-        #self.vocab = vocab
+        self.vocab = vocab
         self.log_step = opt.log_step
         self.grad_clip = opt.grad_clip
         self.vse_lm_alpha = opt.vse_lm_alpha
-        self.pretrained_embed = pretrained_embed
-        
+        # self.pretrained_embed = pretrained_embed
         
         self.parser = CompoundCFG(
             pretrained_embed, # add pretrained embedding
@@ -72,7 +86,7 @@ class VGCPCFGs(object):
         dist = SentCFG(params, lengths=lengths)
 
         the_spans = dist.argmax[-1]
-        argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=1) 
+        argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=0) 
 
         ll = dist.partition
         nll = -ll
@@ -112,7 +126,7 @@ class VGCPCFGs(object):
         for b in range(bsize):
             max_len = lengths[b].item() 
             pred = [(a[0], a[1]) for a in argmax_spans[b] if a[0] != a[1]]
-            pred_set = set(pred)
+            pred_set = set(pred[:-1])
             gold = [(spans[b][i][0].item(), spans[b][i][1].item()) for i in range(max_len - 1)] 
             gold_set = set(gold[:-1])
             utils.update_stats(pred_set, [gold_set], self.all_stats) 
@@ -131,12 +145,26 @@ class VGCPCFGs(object):
                 self.n_sent / (time.time() - self.s_time)
             )
             pred_action = utils.get_actions(trees[0])
-            sent_s = self.tokenizer.convert_ids_to_tokens(captions[0].cpu().tolist())
-            print(sent_s)
+            sent_s = [self.vocab.idx2word[wid] for wid in captions[0].cpu().tolist()]
             pred_t = utils.get_tree(pred_action, sent_s)
             gold_t = utils.span_to_tree(spans[0].tolist(), lengths[0].item()) 
-            print(gold_t)
-            gold_action = utils.get_actions(gold_t)
+            gold_action = utils.get_actions(gold_t) 
             gold_t = utils.get_tree(gold_action, sent_s)
             info += "\nPred T: {}\nGold T: {}".format(pred_t, gold_t)
         return info
+
+
+
+# class JointModel(nn.Module):
+#     def __init__(self, V, opt, vocab, logger, w_dim=512):
+#         super().__init__()
+#         self.emb = nn.Embedding(V, w_dim)
+#         self.lm = LanguageModel(V, w_dim, num_layers=2, pretrained_embed=self.emb, dropout=0.1)
+#         self.gm = VGCPCFGs(opt, vocab, logger, pretrained_embed=self.emb)
+
+#     def forward(self, sent):
+#         sent_embed = self.emb(sent)
+#         lm_logits = self.lm(sent_embed)
+#         return lm_logits,
+
+

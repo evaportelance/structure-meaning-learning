@@ -270,15 +270,23 @@ def create_abstractscenes_datasets(args, data_path):
                 captions.append(cap)
                 leaves = cap.split(' ')
                 constituents = get_constituents(spans, leaves, gold_spans=True)
-                #trees.append(constituents+leaves)
-                trees.append(constituents)
+                if len(constituents) == 0:
+                    trees.append(leaves)
+                else:
+                    trees.append(constituents)
                 spans = random_tree_generator(leaves)
                 constituents = get_constituents(spans, leaves)
-                random_trees.append(constituents)
+                if len(constituents) == 0:
+                    random_trees.append(leaves)
+                else:
+                    random_trees.append(constituents)
                 random.shuffle(leaves)
                 spans = random_tree_generator(leaves)
                 constituents = get_constituents(spans, leaves)
-                random_leaf_trees.append(constituents)
+                if len(constituents) == 0:
+                    random_leaf_trees.append(leaves)
+                else:
+                    random_leaf_trees.append(constituents)
                 i += 1
         return ids, images, captions, trees, random_trees, random_leaf_trees
     image_list = create_abstractscenes_img_list(args.as_img_dir)
