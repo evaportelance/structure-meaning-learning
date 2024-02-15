@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from configs import get_datasets
 from critic import LinearCritic
-from evaluate import save_checkpoint, encode_train_set, train_clf, test
+from evaluate import save_checkpoint, encode_train_set, train_clf, test, train_clf_multilabel, test_multilabel
 from models import *
 from scheduler import CosineAnnealingWithLinearRampLR
 
@@ -21,7 +21,7 @@ parser.add_argument('--base-lr', default=0.25, type=float, help='base learning r
 parser.add_argument("--momentum", default=0.9, type=float, help='SGD momentum')
 parser.add_argument('--resume', '-r', type=str, default='', help='resume from checkpoint with this filename')
 parser.add_argument('--dataset', '-d', type=str, default='cifar10', help='dataset',
-                    choices=['cifar10', 'cifar100', 'stl10', 'imagenet'])
+                    choices=['cifar10', 'cifar100', 'stl10', 'imagenet', 'abstractscenes'])
 parser.add_argument('--temperature', type=float, default=0.5, help='InfoNCE temperature')
 parser.add_argument("--batch-size", type=int, default=512, help='Training batch size')
 parser.add_argument("--num-epochs", type=int, default=100, help='Number of training epochs')
@@ -49,10 +49,18 @@ trainset, testset, clftrainset, num_classes, stem = get_datasets(args.dataset)
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True,
                                           num_workers=args.num_workers, pin_memory=True)
-testloader = torch.utils.data.DataLoader(testset, batch_size=1000, shuffle=False, num_workers=args.num_workers,
+testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=args.num_workers,
                                          pin_memory=True)
-clftrainloader = torch.utils.data.DataLoader(clftrainset, batch_size=1000, shuffle=False, num_workers=args.num_workers,
+clftrainloader = torch.utils.data.DataLoader(clftrainset, batch_size=100, shuffle=False, num_workers=args.num_workers, 
                                              pin_memory=True)
+
+
+# trainloader = torch.utils.data.DataLoader([trainset[x] for x in range(0,100)], batch_size=args.batch_size, shuffle=True,
+#                                           num_workers=args.num_workers, pin_memory=True)
+# testloader = torch.utils.data.DataLoader([testset[x] for x in range(0,5)], batch_size=1, shuffle=False, num_workers=args.num_workers,
+#                                          pin_memory=True)
+# clftrainloader = torch.utils.data.DataLoader([clftrainset[x] for x in range(0,5)], batch_size=1, shuffle=False, num_workers=args.num_workers, 
+#                                              pin_memory=True)
 
 # Model
 print('==> Building model..')
@@ -98,7 +106,9 @@ if args.cosine_anneal:
     scheduler = CosineAnnealingWithLinearRampLR(base_optimizer, args.num_epochs)
 encoder_optimizer = LARS(base_optimizer, trust_coef=1e-3)
 
-
+if args.dataset == "abstractscenes":
+    with open('./classifier_results.csv', 'w') as f:
+                f.write("epoch,precision,recall,f1\n")
 # Training
 def train(epoch):
     print('\nEpoch: %d' % epoch)
@@ -119,17 +129,25 @@ def train(epoch):
         train_loss += loss.item()
 
         t.set_description('Loss: %.3f ' % (train_loss / (batch_idx + 1)))
-
-
+    
 for epoch in range(start_epoch, start_epoch + args.num_epochs):
     train(epoch)
     if (args.test_freq > 0) and (epoch % args.test_freq == (args.test_freq - 1)):
         X, y = encode_train_set(clftrainloader, device, net)
-        clf = train_clf(X, y, net.representation_dim, num_classes, device, reg_weight=1e-5)
-        acc = test(testloader, device, net, clf)
+        if args.dataset == "abstractscenes":
+            clf = train_clf_multilabel(X, y, net.representation_dim, num_classes, device, reg_weight=1e-5)
+            f1, precision, recall, class_accuracies = test_multilabel(testloader, device, net, clf)
+            acc = f1
+            print('\nClass Accuracies:')
+            print(list(enumerate(class_accuracies.tolist())))
+            with open('./classifier_results.csv', 'a') as f:
+                f.write(str(epoch)+","+str(precision)+","+str(recall)+","+str(f1)+"\n")
+        else:
+            clf = train_clf(X, y, net.representation_dim, num_classes, device, reg_weight=1e-5)
+            acc = test(testloader, device, net, clf)
         if acc > best_acc:
             best_acc = acc
-        save_checkpoint(net, clf, critic, epoch, args, os.path.basename(__file__))
+            save_checkpoint(net, clf, critic, epoch, args, os.path.basename(__file__))
     elif args.test_freq == 0:
         save_checkpoint(net, clf, critic, epoch, args, os.path.basename(__file__))
     if args.cosine_anneal:

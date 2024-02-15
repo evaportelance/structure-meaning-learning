@@ -14,14 +14,16 @@ def get_datasets(dataset, augment_clf_train=False, add_indices_to_data=False, nu
         'cifar10': ((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         'cifar100': ((0.5071, 0.4865, 0.4409), (0.2009, 0.1984, 0.2023)),
         'stl10': ((0.4409, 0.4279, 0.3868), (0.2309, 0.2262, 0.2237)),
-        'imagenet': ((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        'imagenet': ((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        'abstractscenes': ((0.428, 0.696, 0.526), (0.197, 0.179, 0.298))
     }
 
     PATHS = {
         'cifar10': '/data/cifar10/',
         'cifar100': '/data/cifar100/',
         'stl10': '/data/stl10/',
-        'imagenet': '/data/imagenet/2012/'
+        'imagenet': '/data/imagenet/2012/',
+        'abstractscenes': '../../AbstractScenes_v1.1/RenderedScenes/'
     }
     try:
         with open('dataset-paths.json', 'r') as f:
@@ -35,6 +37,8 @@ def get_datasets(dataset, augment_clf_train=False, add_indices_to_data=False, nu
     if dataset == 'stl10':
         img_size = 96
     elif dataset == 'imagenet':
+        img_size = 224
+    elif dataset == 'abstractscenes':
         img_size = 224
     else:
         img_size = 32
@@ -51,6 +55,12 @@ def get_datasets(dataset, augment_clf_train=False, add_indices_to_data=False, nu
         transform_test = transforms.Compose([
             transforms.Resize(256),
             transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(*CACHED_MEAN_STD[dataset]),
+        ])
+    elif dataset == 'abstractscenes':
+        transform_test = transforms.Compose([
+            transforms.Resize(224),
             transforms.ToTensor(),
             transforms.Normalize(*CACHED_MEAN_STD[dataset]),
         ])
@@ -124,6 +134,13 @@ def get_datasets(dataset, augment_clf_train=False, add_indices_to_data=False, nu
         clftrainset = dset(root=root, split='train', transform=transform_clftrain)
         num_classes = len(testset.classes)
         stem = StemImageNet
+    elif dataset == 'abstractscenes':
+        trainset = AbsScenesBiaugment(root=root, transform=transform_train)
+        testset = AbsScenesDataset(root=root, transform=transform_test)
+        clftrainset = AbsScenesDataset(root=root, transform=transform_clftrain)
+        num_classes = 58
+        stem = StemImageNet
+        
     else:
         raise ValueError("Bad dataset value: {}".format(dataset))
 

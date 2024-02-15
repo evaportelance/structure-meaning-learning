@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.utils.data as data
 
 import torchvision.models as models
-import torchvision.datasets as datasets
+#import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
 # from clip import load

@@ -1,6 +1,8 @@
+import os
 import numpy as np
 import torch
 import torchvision
+from typing import Any, Callable, cast, Dict, List, Optional, Tuple, Union
 from PIL import Image
 
 
@@ -159,6 +161,66 @@ class ImageNetBiaugment(torchvision.datasets.ImageNet):
 
         return (img, img2), target, index
 
+def my_make_dataset(img_directory, class_file = '../preprocessed-data/abstractscenes/img_classes.npy'):
+    img_classes = np.load(class_file)
+    instances = list()
+    for root, _, fnames in sorted(os.walk(img_directory, followlinks=True)):
+        for fname in sorted(fnames):
+            path = os.path.join(root, fname)
+            if fname.endswith(".png"):
+                id = fname[:-4].replace("Scene", "").replace("_", "")
+                class_vector = img_classes[int(id)]
+                item = path, class_vector
+                instances.append(item)
+    return instances
+    
+class AbsScenesBiaugment(torchvision.datasets.ImageFolder):
+    def __init__(self, root, transform=None, target_transform=None, **kwargs):
+        super(AbsScenesBiaugment, self).__init__(root, transform, target_transform, **kwargs)
+        
+        samples = self.make_dataset(root)
+        self.samples = samples
+        self.imgs = self.samples
+        
+    def find_classes(self, directory: str) -> Tuple[List[str], Dict[str, int]]:
+        classes = [str(x) for x in range(0,58)]
+        class_to_idx = dict(zip(classes, list(range(0,58))))
+        return classes, class_to_idx
+        
+    def make_dataset(self, directory: str,
+                     class_to_idx: Optional[Dict[str, int]] = None,
+                     extensions: Optional[Union[str, Tuple[str, ...]]] = None,
+                     is_valid_file: Optional[Callable[[str], bool]] = None ) -> List[Tuple[str, int]]:
+        instances = my_make_dataset(directory)
+        return instances
+    
+    def __getitem__(self, index):
+        path, target = self.samples[index]
+        sample = self.loader(path)
+        if self.transform is not None:
+            img = self.transform(sample)
+            img2 = self.transform(sample)
+        else:
+            img2 = img = sample
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        return (img, img2), target, index
+
+class AbsScenesDataset(AbsScenesBiaugment):
+    def __init__(self, root, transform=None, target_transform=None, **kwargs):
+        super(AbsScenesDataset, self).__init__(root, transform, target_transform, **kwargs)
+    
+    def __getitem__(self, index):
+        path, target = self.samples[index]
+        sample = self.loader(path)
+        if self.transform is not None:
+            img = self.transform(sample)
+        else:
+            img = sample
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        return img, target 
+
 
 def add_indices(dataset_cls):
     class NewClass(dataset_cls):
@@ -167,3 +229,32 @@ def add_indices(dataset_cls):
             return (*output, item)
 
     return NewClass
+
+
+
+# if __name__ == '__main__':
+#     # GET AbstractScenes pixel mean and std
+#     import torchvision.transforms as transforms
+#     from torch.utils.data import DataLoader
+#     from PIL import ImageStat
+#     from tqdm import tqdm
+    
+#     class Stats(ImageStat.Stat):
+#         def __add__(self, other):
+#             return Stats(list(map(np.add, self.h, other.h)))
+    
+#     root = '../../AbstractScenes_v1.1/RenderedScenes/'
+#     transform_test = transforms.Compose([
+#             transforms.Resize(224)
+#         ])
+#     dset = AbsScenesDataset(root=root, transform=transform_test)
+    
+#     statistics = None
+#     for _, (img, labels, _) in tqdm(enumerate(dset)):
+#         if statistics is None:
+#             statistics = Stats(img)
+#         else:
+#             statistics += Stats(img)
+#     print(f'mean:{statistics.mean}, std:{statistics.stddev}')
+#     #mean:[109.10416481927726, 177.48769524248698, 134.12553284216006], std:[50.15360163453574, 45.66264343524219, 76.01617181685411]
+#     #((0.428, 0.696, 0.526), (0.197, 0.179, 0.298))

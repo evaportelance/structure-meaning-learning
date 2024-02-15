@@ -14,7 +14,7 @@ import torch.nn as nn
 import torch.utils.data as data
 
 import torchvision.models as models
-import torchvision.datasets as datasets
+#import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
 # from clip import load
@@ -285,8 +285,7 @@ def get_gold_feature_classes(cfg):
 ## Create numpy array of the same length as text items (so including copies of images)
 def main_collect_abstractscenes_labels(cfg):
     img_features, img_classes = get_gold_feature_classes(cfg)
-    print(len(img_classes))
-    def per_split(id_file, feat_ofile, class_ofile):
+    def per_split(id_file, feat_ofile, label_ofile):
         feat_vectors = []
         class_vectors = []
         if id_file:
@@ -296,26 +295,28 @@ def main_collect_abstractscenes_labels(cfg):
                     id = int(line.strip())
                     feat_vectors.append(img_features[id])
                     class_vectors.append(img_classes[id])
-        print(len(class_vectors))
         feat_vectors = np.stack(feat_vectors, axis=0)
         class_vectors = np.stack(class_vectors, axis=0)
         np.save(feat_ofile, feat_vectors)
-        np.save(class_ofile, class_vectors)
+        np.save(label_ofile, class_vectors)
         print(f"saved {feat_vectors.shape} in {feat_ofile}")
-        print(f"saved {class_vectors.shape} in {class_ofile}")
+        print(f"saved {class_vectors.shape} in {label_ofile}")
 
     if len(cfg.split_list_file) > 0:
         split_name = cfg.split_name
         feat_ofile = f"{cfg.abstractscenes_out_root}/{split_name}_features_gold.npy"
-        class_ofile = f"{cfg.abstractscenes_out_root}/{split_name}_labels_gold.npy"
+        label_ofile = f"{cfg.abstractscenes_out_root}/{split_name}_labels_gold.npy"
         id_file = f"{cfg.abstractscenes_out_root}/{cfg.split_list_file}"
-        per_split(id_file, feat_ofile, class_ofile)
+        per_split(id_file, feat_ofile, label_ofile)
     else:
         feat_ofile = f"{cfg.abstractscenes_out_root}/all_features_gold.npy"
-        class_ofile = f"{cfg.abstractscenes_out_root}/all_labels_gold.npy"
+        label_ofile = f"{cfg.abstractscenes_out_root}/all_labels_gold.npy"
         id_file = f"{cfg.abstractscenes_out_root}/all.id"
-        per_split(id_file, feat_ofile, class_ofile)
-
+        per_split(id_file, feat_ofile, label_ofile)
+    class_ofile = f"{cfg.abstractscenes_out_root}/img_classes.npy"
+    img_classes = np.stack(img_classes, axis=0)
+    np.save(class_ofile, img_classes)
+    print(f"saved {img_classes.shape} in {class_ofile}")
 
 if __name__ == '__main__':
     print(cfg)

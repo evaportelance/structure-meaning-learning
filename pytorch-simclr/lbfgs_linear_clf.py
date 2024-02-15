@@ -7,7 +7,7 @@ import torch
 import torch.backends.cudnn as cudnn
 
 from configs import get_datasets
-from evaluate import encode_train_set, train_clf, test
+from evaluate import encode_train_set, train_clf, test, train_clf_multilabel, test_multilabel
 from models import *
 
 parser = argparse.ArgumentParser(description='Tune regularization coefficient of downstream classifier.')

@@ -19,7 +19,7 @@ def encode_train_set(clftrainloader, device, net):
             t.set_description('Encoded %d/%d' % (batch_idx, len(clftrainloader)))
 
     X, y = zip(*store)
-    X, y = torch.cat(X, dim=0), torch.cat(y, dim=0)
+    X, y = torch.cat(X, dim=0).float(), torch.cat(y, dim=0).float()
     return X, y
 
 
@@ -81,3 +81,79 @@ def test(testloader, device, net, clf):
 
     acc = 100. * correct / total
     return acc
+
+def train_clf_multilabel(X, y, representation_dim, num_classes, device, reg_weight=1e-3):
+    print('\nL2 Regularization weight: %g' % reg_weight)
+    criterion = nn.BCEWithLogitsLoss()
+    n_lbfgs_steps = 100
+    #n_lbfgs_steps = 2
+    # Should be reset after each epoch for a completely independent evaluation
+    clf = nn.Linear(representation_dim, num_classes).to(device)
+    clf_optimizer = torch.optim.Adam(clf.parameters())
+    clf.train()
+    t = tqdm(range(n_lbfgs_steps), desc='Loss: **** | Train Acc: ****% ', bar_format='{desc}{bar}{r_bar}')
+    for _ in t:
+        def closure():
+            clf_optimizer.zero_grad()
+            raw_scores = clf(X)
+            loss = criterion(raw_scores, y)
+            loss += reg_weight * clf.weight.pow(2).sum()
+            loss.backward()
+            predictions = raw_scores > 0.5
+            #correct = (predictions == y).sum().item()
+            #100. * correct / (y.shape[0]*num_classes)
+            tp = (predictions*y).sum().item()
+            fp = ((y == 0.0)*predictions).sum().item()
+            fn = ((raw_scores <= 0.5)*y).sum().item()
+            precision = tp/(tp+fp)
+            recall = tp/(tp+fn)
+            f1 = (2*tp)/(2*tp+fn+fp)
+            t.set_description('Loss: %.3f | Train F1: %.3f%% ' % (loss, f1*100))
+            return loss
+        clf_optimizer.step(closure)
+    return clf
+
+
+def test_multilabel(testloader, device, net, clf, num_classes=58):
+    criterion = nn.BCEWithLogitsLoss()
+    net.eval()
+    clf.eval()
+    test_clf_loss = 0
+    corrects = torch.zeros(num_classes).to(device)
+    totals = torch.zeros(num_classes).to(device)
+    #correct = 0
+    f1s = 0
+    precisions = 0
+    recalls = 0
+    total = 0
+    with torch.no_grad():
+        t = tqdm(enumerate(testloader), total=len(testloader), desc='Loss: **** | Test Acc: ****% ',
+                 bar_format='{desc}{bar}{r_bar}')
+        for batch_idx, (inputs, targets) in t:
+            inputs, targets = inputs.to(device), targets.to(device)
+            representation = net(inputs)
+            # test_repr_loss = criterion(representation, targets)
+            raw_scores = clf(representation)
+            clf_loss = criterion(raw_scores, targets)
+            test_clf_loss += clf_loss.item()
+            predictions = raw_scores > 0.5
+            corrects += (predictions*targets).sum(0)
+            totals += targets.sum(0)
+            #correct += (predictions == targets).sum().item()
+            total += targets.size(0)
+            tp = (predictions*targets).sum().item()
+            fp = ((targets == 0.0)*predictions).sum().item()
+            fn = ((raw_scores <= 0.5)*targets).sum().item()
+            precision = tp/(tp+fp)
+            recall = tp/(tp+fn)
+            f1 = (2*tp)/(2*tp+fn+fp)
+            f1s += f1
+            precisions += precision
+            recalls += recall
+            #batch_acc = (predictions == targets).sum()/(targets.size(0) * targets.size(1))
+            t.set_description('Loss: %.3f | Test Batch F1: %.3f%% ' % (test_clf_loss / (batch_idx + 1), 100. * f1))
+    f1 = 100. * f1 / total
+    precision = 100. * precisions / total
+    recall = 100. * recalls / total
+    class_accuracies = corrects / totals
+    return f1, precision, recall, class_accuracies
