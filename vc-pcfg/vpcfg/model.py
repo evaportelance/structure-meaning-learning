@@ -13,20 +13,15 @@ class VGCPCFGs(object):
     NS_PARSER = 'parser'
     NS_OPTIMIZER = 'optimizer'
     
-    def __init__(self, opt, logger, pretrained_embed, tokenizer):
-    #def __init__(self, opt, vocab, logger, pretrained_embed):
-        # pretrained_embed is the shared embedding layer
+    def __init__(self, opt, vocab, logger):
         self.niter = 0
-        self.tokenizer = tokenizer
-        #self.vocab = vocab
+        self.vocab = vocab
         self.log_step = opt.log_step
         self.grad_clip = opt.grad_clip
         self.vse_lm_alpha = opt.vse_lm_alpha
-        self.pretrained_embed = pretrained_embed
         
         
         self.parser = CompoundCFG(
-            pretrained_embed, # add pretrained embedding
             opt.vocab_size, opt.nt_states, opt.t_states, 
             h_dim = opt.h_dim,
             w_dim = opt.w_dim,
@@ -72,9 +67,9 @@ class VGCPCFGs(object):
         dist = SentCFG(params, lengths=lengths)
 
         the_spans = dist.argmax[-1]
-        argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=1) 
+        argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=0) 
 
-        ll = dist.partition
+        ll, _ = dist.inside_im
         nll = -ll
         kl = torch.zeros_like(nll) if kl is None else kl
         return nll, kl, argmax_spans, trees, lprobs
@@ -131,11 +126,9 @@ class VGCPCFGs(object):
                 self.n_sent / (time.time() - self.s_time)
             )
             pred_action = utils.get_actions(trees[0])
-            sent_s = self.tokenizer.convert_ids_to_tokens(captions[0].cpu().tolist())
-            print(sent_s)
+            sent_s = [self.vocab.idx2word[wid] for wid in captions[0].cpu().tolist()]
             pred_t = utils.get_tree(pred_action, sent_s)
             gold_t = utils.span_to_tree(spans[0].tolist(), lengths[0].item()) 
-            print(gold_t)
             gold_action = utils.get_actions(gold_t)
             gold_t = utils.get_tree(gold_action, sent_s)
             info += "\nPred T: {}\nGold T: {}".format(pred_t, gold_t)

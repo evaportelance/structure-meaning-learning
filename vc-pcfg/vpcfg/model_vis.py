@@ -4,7 +4,6 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from torch.nn.utils.clip_grad import clip_grad_norm_
-
 from torch_struct import SentCFG
 
 from . import utils
@@ -16,10 +15,9 @@ class VGCPCFGs(object):
     NS_IMG_ENCODER = 'img_enc' 
     NS_OPTIMIZER = 'optimizer'
 
-    def __init__(self, opt, logger, pretrained_emb):
+    def __init__(self, opt, vocab, logger):
         self.niter = 0
-        #self.vocab = vocab
-        self.pretrained_emb = pretrained_emb
+        self.vocab = vocab
         self.logger = logger
         self.log_step = opt.log_step
         self.grad_clip = opt.grad_clip
@@ -29,18 +27,19 @@ class VGCPCFGs(object):
 
         self.loss_criterion = ContrastiveLoss(margin=opt.margin)
 
-        self.parser = CompoundCFG(self.pretrained_emb,
+        self.parser = CompoundCFG(
             opt.vocab_size, opt.nt_states, opt.t_states, 
             h_dim = opt.h_dim,
             w_dim = opt.w_dim,
             z_dim = opt.z_dim,
             s_dim = opt.state_dim
         )
-        torch.nn.init.xavier_uniform_(self.pretrained_emb.weight)
+        word_emb = torch.nn.Embedding(len(vocab), opt.word_dim)
+        torch.nn.init.xavier_uniform_(word_emb.weight)
 
         self.all_params = [] 
         self.img_enc = ImageEncoder(opt)
-        self.txt_enc = TextEncoder(opt, self.pretrained_emb)
+        self.txt_enc = TextEncoder(opt, word_emb)
         self.all_params += list(self.txt_enc.parameters())
         self.all_params += list(self.parser.parameters())
         self.all_params += list(self.img_enc.parameters())
@@ -88,15 +87,11 @@ class VGCPCFGs(object):
     def forward_parser(self, captions, lengths):
         params, kl = self.parser(captions)
         dist = SentCFG(params, lengths=lengths)
-    
+
         the_spans = dist.argmax[-1]
         argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=0) 
 
-        #ll, span_margs = dist.inside_im
-        ll = dist.partition
-        print(ll.size)
-        span_margs = dist.marginals
-        print(span_margs)
+        ll, span_margs = dist.inside_im
         nll = -ll
         kl = torch.zeros_like(nll) if kl is None else kl
         return nll, kl, span_margs, argmax_spans, trees, lprobs
@@ -211,7 +206,5 @@ class VGCPCFGs(object):
             gold_t = utils.get_tree(gold_action, sent_s)
             info += "\nPred T: {}\nGold T: {}".format(pred_t, gold_t)
         if epoch > 0: #
-            del img_emb, cap_span_features, left_span_features, right_span_features, \
-                word_embs, tree_indices, probs, span_bounds, nll, kl, span_margs, \
-                argmax_spans, trees, lprobs, matching_loss 
+            del img_emb, cap_span_features, nll, kl, span_margs, argmax_spans, trees, lprobs, matching_loss 
         return info

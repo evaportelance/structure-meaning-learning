@@ -8,6 +8,7 @@ from PIL import Image
 from tqdm import tqdm
 from collections import Counter, defaultdict
 from torchvision.transforms.functional import InterpolationMode
+#from sklearn.preprocessing import normalize
 
 import torch
 import torch.nn as nn
@@ -16,6 +17,7 @@ import torch.utils.data as data
 import torchvision.models as models
 #import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+import resnet
 
 # from clip import load
 import random
@@ -30,18 +32,21 @@ seed_all_rng(527)
 # Data path options
 parser = argparse.ArgumentParser()
 #parser.add_argument('--data_root', default='', type=str, help='')
-parser.add_argument('--npz_token', default='resn-152', type=str, help='')
+parser.add_argument('--npz_token', default='as-resn-50', type=str, help='')
 #EP: Adding abstract scenes path arguments
-parser.add_argument('--abstractscenes_root', default='', type=str, help='')
-parser.add_argument('--abstractscenes_out_root', default='', type=str, help='')
+parser.add_argument('--abstractscenes_root', default='../../../AbstractScenes_v1.1', type=str, help='')
+parser.add_argument('--abstractscenes_out_root', default='../../preprocessed-data/abstractscenes', type=str, help='')
+parser.add_argument('--checkpoint_path', default='../../pytorch-simclr/checkpoint/ckpt.pth', type=str, help='')
 parser.add_argument('--split_list_file', default='', type=str, help='')
 parser.add_argument('--split_name', default='', type=str, help='')
 parser.add_argument('--clip_model_root', default='', type=str, help='')
 parser.add_argument('--clip_model_name', default='', type=str, help='')
 parser.add_argument('--batch_size', default=8, type=int, help='')
-#parser.add_argument('--peep_rate', default=1, type=int, help='')
-#parser.add_argument('--num_proc', default=1, type=int, help='')
+parser.add_argument('--peep_rate', default=100, type=int, help='')
+parser.add_argument('--num_proc', default=1, type=int, help='')
+
 cfg = parser.parse_args()
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # def build_clip_encoder(cfg):
 #     model, _ = load(
@@ -50,12 +55,30 @@ cfg = parser.parse_args()
 #     model = model.train(False)
 #     return model
 
+def build_as_resnet50_encoder(cfg):
+    model = resnet.ResNet50(stem=resnet.StemImageNet)
+    model = model.to(device)
+    model = torch.nn.DataParallel(model)
+    checkpoint = torch.load(cfg.checkpoint_path)
+    model.load_state_dict(checkpoint['net'])
+    model = model.train(False)
+    return model
 
 def build_resnet152_encoder(cfg):
     resnet101 = models.resnet152(pretrained=True)
     model = torch.nn.Sequential(*(list(resnet101.children())[:-1]))
     model = model.train(False)
     return model
+
+def as_resnet50_transform(resize_size=224):
+    mean = (0.428, 0.696, 0.526)
+    std = (0.197, 0.179, 0.298)
+    return transforms.Compose([
+        lambda image: image.convert("RGB"),
+        transforms.Resize(resize_size),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=mean, std=std),
+        ])
 
 def resnet_transform(resize_size=256, crop_size=224):
     """ (1) https://github.com/pytorch/vision/blob/d2bfd639e46e1c5dc3c177f889dc7750c8d137c7/references/classification/train.py#L111
@@ -177,36 +200,34 @@ def encode_images(cfg, clip, resnet, dataloader, clip_npz_root, resnet_npz_root)
     for ibatch, (image_clip, image_resnet, names) in enumerate(dataloader):
         image_clip = image_clip.cuda(0, non_blocking=True)
         image_resnet = image_resnet.cuda(0, non_blocking=True)
-
-        #print(image_clip.shape, image_resnet.shape)
-
         if clip is not None:
             z_clip = clip.encode_image(image_clip)
             z_clip = z_clip.cpu().numpy()
         else:
             z_clip = None
-
         z_resnet = resnet(image_resnet).squeeze()
         z_resnet = z_resnet.cpu().numpy()
-        #print(z_clip.shape, z_resnet.shape)
-        #print(names[:10])
-
         save_image_npz(names, clip_npz_root, resnet_npz_root, z_clip=z_clip, z_resnet=z_resnet)
         nsample += image_clip.shape[0]
         if (ibatch + 1) % cfg.peep_rate == 0:
             print(f"--step {ibatch + 1:08d} {nsample / (time.time() - start_time):.2f} samples/s")
-        #break
 
 def main_encode_abstractscenes_images(cfg):
     clip = None #build_clip_encoder(cfg).cuda()
-    resnet = build_resnet152_encoder(cfg).cuda()
+    if cfg.npz_token == "as-resn-50":
+        resnet = build_as_resnet50_encoder(cfg)
+        transform = as_resnet50_transform()
+        resnet_npz_root = f"{cfg.abstractscenes_root}/as-resn-50"
+    else:
+        resnet = build_resnet152_encoder(cfg).cuda()
+        transform = resnet_transform()
+        resnet_npz_root = f"{cfg.abstractscenes_root}/resn-152"
 
     abstractscenes_images = create_abstractscenes_data_list(cfg)
-    abstractscenes_loader = build_image_loader(cfg, abstractscenes_images, resnet_transform())
+    abstractscenes_loader = build_image_loader(cfg, abstractscenes_images, transform)
     print(f"Total {len(abstractscenes_loader)} / {len(abstractscenes_loader.dataset)} AbstractScenes batches.")
 
     clip_npz_root = f"{cfg.abstractscenes_root}/clip-b32"
-    resnet_npz_root = f"{cfg.abstractscenes_root}/resn-152"
 
     for output_dir in [clip_npz_root, resnet_npz_root]:
         if not os.path.exists(output_dir):
@@ -295,10 +316,15 @@ def main_collect_abstractscenes_labels(cfg):
                     id = int(line.strip())
                     feat_vectors.append(img_features[id])
                     class_vectors.append(img_classes[id])
+        else:
+            for id in range(0, 10020):
+                feat_vectors.append(img_features[id])
+                class_vectors.append(img_classes[id])
         feat_vectors = np.stack(feat_vectors, axis=0)
         class_vectors = np.stack(class_vectors, axis=0)
         np.save(feat_ofile, feat_vectors)
         np.save(label_ofile, class_vectors)
+        
         print(f"saved {feat_vectors.shape} in {feat_ofile}")
         print(f"saved {class_vectors.shape} in {label_ofile}")
 
@@ -311,18 +337,32 @@ def main_collect_abstractscenes_labels(cfg):
     else:
         feat_ofile = f"{cfg.abstractscenes_out_root}/all_features_gold.npy"
         label_ofile = f"{cfg.abstractscenes_out_root}/all_labels_gold.npy"
-        id_file = f"{cfg.abstractscenes_out_root}/all.id"
+        #id_file = f"{cfg.abstractscenes_out_root}/all.id"
+        id_file=None
         per_split(id_file, feat_ofile, label_ofile)
     class_ofile = f"{cfg.abstractscenes_out_root}/img_classes.npy"
     img_classes = np.stack(img_classes, axis=0)
     np.save(class_ofile, img_classes)
     print(f"saved {img_classes.shape} in {class_ofile}")
+    
+def main_flatten_labels(cfg):
+    ifile = f"{cfg.abstractscenes_out_root}/all_features_gold.npy"
+    gold_feats = np.load(ifile)
+    assert gold_feats.shape == (10020, 126, 6)
+    gold_feats = np.reshape(gold_feats, (10020, 756)).astype(np.float64)
+    ofile = f"{cfg.abstractscenes_out_root}/all_flat_features_gold.npy"
+    np.save(ofile, gold_feats)
+    print(f"saved {gold_feats.shape} in {ofile}")
+    
+    
 
 if __name__ == '__main__':
     print(cfg)
-    #main_collect_abstractscenes_npz(cfg)
-    main_collect_abstractscenes_labels(cfg)
     with torch.no_grad():
         #main_encode_abstractscenes_images(cfg)
         pass
-    pass
+    #main_collect_abstractscenes_npz(cfg)
+    #main_collect_abstractscenes_labels(cfg)
+    main_flatten_labels(cfg)
+    
+    

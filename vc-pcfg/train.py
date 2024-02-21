@@ -64,13 +64,15 @@ if __name__ == '__main__':
 
     #
     parser.add_argument('--seed', default=1213, type=int, help='random seed')
-    parser.add_argument('--model_init', default=None, type=str, help='random seed')
+    parser.add_argument('--model_init', default=None, type=str, help='checkpoint to initialize model with')
     #parser.add_argument('--w2vec_file', default=None, type=str, help='word vector file')
-    parser.add_argument('--max_length', default=40, type=int, help='vocab name')
+    parser.add_argument('--max_length', default=40, type=int, help='max sentence length')
     parser.add_argument('--prefix', default="all", type=str, help='prefix')
-    parser.add_argument('--parser_type', default='2nd', type=str, help='model name (1st/2nd)')
-    parser.add_argument('--share_w2vec', default=False, type=bool, help='shared embeddings')
-    parser.add_argument('--visual_mode', default=False, type=bool, help='run visual model')
+    #parser.add_argument('--parser_type', default='2nd', type=str, help='model name (1st/2nd)')
+    #parser.add_argument('--share_w2vec', default=False, type=bool, help='shared embeddings')
+    parser.add_argument('--visual_mode', action='store_true', help='run visual model')
+    
+    parser.add_argument('--encoder_file', default=None, help='image representations file name to use')
     parser.add_argument('--tiny', action='store_true', help='if testing will create tiny dataloaders')
     parser.add_argument('--shuffle', action='store_true', help='shuffle training data')
 
@@ -81,15 +83,17 @@ if __name__ == '__main__':
                         help='dimensionality of the word embedding')
     parser.add_argument('--lstm_dim', default=768, type=int,
                         help='dimensionality of the lstm hidden embedding')
-    parser.add_argument('--vocab_size', default=10000, type=int,
+    
+    parser.add_argument('--vocab_size', default=2000, type=int,
                         help='tokenizer/vocabulary size')
-    parser.add_argument('--data_path', default='../../data/preprocessed-data/abstractscenes', help='path to datasets')
-    parser.add_argument('--tokenizer_path', default='../../babylm-models/test/', help='path to pretrained tokenizer')
-    parser.add_argument('--save_model_path', default='../../babylm-models/test/', help='path to directory with model configs')
-    parser.add_argument('--logger_name', default='../../babylm-models/as_graminduct/outputs', help='location for model outputs and logfiles to be saved')
+    parser.add_argument('--data_path', default='../preprocessed-data/abstractscenes', help='path to datasets')
+    #parser.add_argument('--tokenizer_path', default='../../babylm-models/test/', help='path to pretrained tokenizer')
+    #parser.add_argument('--save_model_path', default='../../babylm-models/test/', help='path to directory with model configs')
+    parser.add_argument('--logger_name', default='../../../scratch/vcpcfg/runs/test', help='location for model outputs and logfiles to be saved')
+    
     parser.add_argument('--margin', default=0.2, type=float,
                         help='rank loss margin')
-    parser.add_argument('--num_epochs', default=30, type=int,
+    parser.add_argument('--num_epochs', default=100, type=int,
                         help='number of training epochs')
     parser.add_argument('--batch_size', default=5, type=int,
                         help='size of a training mini-batch')
@@ -97,7 +101,7 @@ if __name__ == '__main__':
                         help='gradient clipping threshold')
     parser.add_argument('--lr', default=.001, type=float,
                         help='initial learning rate')
-    parser.add_argument('--workers', default=0, type=int,
+    parser.add_argument('--workers', default=1, type=int,
                         help='number of data loader workers')
     #
     parser.add_argument('--log_step', default=500, type=int,
@@ -145,25 +149,18 @@ if __name__ == '__main__':
     # load predefined vocabulary and pretrained word embeddings if applicable
     #vocab = pickle.load(open(os.path.join(opt.data_path, opt.vocab_name), 'rb'))
     ## EP to get Abstract Scenes vocabulary
-    #vocab = get_vocab(opt.data_path)
-    #opt.vocab_size = len(vocab)
-    tokenizer = AutoTokenizer.from_pretrained(opt.tokenizer_path)
-    tokenizer.add_prefix_space=True
-    tokenizer.truncation=True
-    tokenizer.max_length=opt.max_length
-    config = AutoConfig.from_pretrained(os.path.join(opt.save_model_path, "config.json"))
-    lm = AutoModelForCausalLM.from_config(config)
-    subword_embeds = lm.model.decoder.embed_tokens
-    
-    #logger.info("|vocab|={}".format(len(vocab)))
+    vocab = get_vocab(opt.data_path)
+    opt.vocab_size = len(vocab)
+    logger.info("|vocab|={}".format(len(vocab)))
 
     # construct the model
     if not opt.visual_mode:
         from vpcfg.model import VGCPCFGs 
     else:
+        logger.info("using visually-grounded version of model.")
         from vpcfg.model_vis import VGCPCFGs 
     sampler = True
-    model = VGCPCFGs(opt, logger, subword_embeds, tokenizer)
+    model = VGCPCFGs(opt, vocab, logger)
     if opt.model_init:
         logger.info("override parser's params.")
         checkpoint = torch.load(opt.model_init, map_location='cpu')
@@ -172,8 +169,8 @@ if __name__ == '__main__':
 
     # Load data loaders
     data.set_constant(opt.visual_mode, opt.max_length)
-    train_loader = data.get_data_iters(opt.data_path, opt.prefix, tokenizer, opt.batch_size, opt.workers, load_img=opt.visual_mode, shuffle=opt.shuffle, sampler=sampler, split='train', tiny=opt.tiny)
-    val_loader = data.get_data_iters(opt.data_path, opt.prefix, tokenizer, opt.batch_size, opt.workers, load_img=opt.visual_mode, shuffle=False, sampler=None, split='val', tiny=opt.tiny)
+    train_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, load_img=opt.visual_mode, encoder_file=opt.encoder_file, img_dim=opt.img_dim, shuffle=opt.shuffle, sampler=sampler, split='train', tiny=opt.tiny)
+    val_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, load_img=opt.visual_mode, encoder_file=opt.encoder_file, img_dim=opt.img_dim,  shuffle=False, sampler=None, split='val', tiny=opt.tiny)
 
     save_checkpoint({
         'epoch': -1,

@@ -38,7 +38,8 @@ def create_vocab(word_list_dir, word_list_file, vocab_file, vocab_size = 2000):
     word_list_file = word_list_dir / word_list_file
     with word_list_file.open("r") as f:
         word_list = json.load(f)
-    sorted_words = sorted(word_list.items(), key=lambda x:x[1])
+    sorted_words = sorted(word_list.items(), key=lambda x:x[1], reverse=True)
+    print(sorted_words[0:10])
     id = 0
     for word,count in sorted_words:
         if id >= vocab_size:
