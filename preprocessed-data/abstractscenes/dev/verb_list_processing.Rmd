@@ -1,0 +1,25 @@
+---
+title: "verb_lists"
+author: "Eva Portelance"
+date: "2024-03-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+```{r}
+classed_verb_stems <- read_tsv("./classed_verb_list.tsv")
+verb_counts<- read_tsv("./tagged_word_list_clean.tsv") |> select(word, stem, frequency) |> unique()
+
+joined <- classed_verb_stems |> left_join(verb_counts) |> group_by(stem) |> mutate(sum_count = sum(frequency))
+classed_verb_stems_counts <- joined |> select(-c(word, frequency)) |> unique()
+
+write_tsv(joined, "./clean_verb_list.tsv")
+write_tsv(classed_verb_stems_counts, "./clean_stemmed_list.tsv")
+
+
+```

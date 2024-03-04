@@ -1,0 +1,481 @@
+word	frequency	stem	is_verb	tags
+is	42039	is	TRUE	['VERB']
+wearing	6057	wear	TRUE	"['VERB', 'NOUN']"
+are	4533	are	TRUE	['VERB']
+sitting	3779	sit	TRUE	['VERB']
+holding	3333	hold	TRUE	['VERB']
+has	3035	has	TRUE	['VERB']
+standing	1755	stand	TRUE	"['VERB', 'NOUN']"
+playing	1638	play	TRUE	"['VERB', 'NOUN', 'ADJ']"
+wants	1562	want	TRUE	['VERB']
+flying	1494	fli	TRUE	"['VERB', 'NOUN']"
+slide	1470	slide	TRUE	"['NOUN', 'VERB']"
+hot	1433	hot	TRUE	"['ADJ', 'NOUN', 'VERB']"
+play	1181	play	TRUE	"['NOUN', 'VERB', 'ADJ']"
+kicking	1150	kick	TRUE	"['VERB', 'ADJ']"
+running	1053	run	TRUE	"['VERB', 'NOUN']"
+sad	1014	sad	TRUE	"['ADJ', 'NOUN', 'VERB']"
+scared	795	scare	TRUE	"['VERB', 'ADJ']"
+swing	749	swing	TRUE	"['NOUN', 'VERB']"
+mad	735	mad	TRUE	"['ADJ', 'NOUN', 'VERB', 'ADV']"
+raining	730	rain	TRUE	"['VERB', 'NOUN']"
+rain	656	rain	TRUE	"['VERB', 'NOUN', 'ADJ']"
+waving	649	wave	TRUE	"['VERB', 'NOUN']"
+picnic	635	picnic	TRUE	"['NOUN', 'ADJ', 'VERB']"
+grill	627	grill	TRUE	"['NOUN', 'ADJ', 'VERB']"
+bat	593	bat	TRUE	"['NOUN', 'VERB']"
+see	577	see	TRUE	"['VERB', 'NOUN']"
+catch	549	catch	TRUE	"['VERB', 'NOUN']"
+watching	534	watch	TRUE	"['VERB', 'NOUN']"
+going	509	go	TRUE	['VERB']
+throwing	505	throw	TRUE	['VERB']
+kicked	499	kick	TRUE	['VERB']
+jumping	457	jump	TRUE	"['VERB', 'NOUN']"
+afraid	433	afraid	TRUE	"['VERB', 'ADJ', 'ADP', 'NOUN', 'ADV']"
+looking	431	look	TRUE	['VERB']
+sits	416	sit	TRUE	"['NOUN', 'VERB']"
+was	395	was	TRUE	['VERB']
+trying	391	tri	TRUE	['VERB']
+surprised	368	surpris	TRUE	"['VERB', 'ADJ']"
+eating	358	eat	TRUE	"['VERB', 'NOUN', 'ADJ']"
+eat	353	eat	TRUE	"['VERB', 'NOUN']"
+kicks	350	kick	TRUE	"['VERB', 'NOUN']"
+looks	343	look	TRUE	"['VERB', 'NOUN']"
+flies	332	fli	TRUE	"['NOUN', 'VERB']"
+set	325	set	TRUE	"['NOUN', 'VERB']"
+will	323	will	TRUE	['VERB']
+threw	305	threw	TRUE	['VERB']
+drink	298	drink	TRUE	"['NOUN', 'VERB']"
+upset	286	upset	TRUE	"['ADJ', 'VERB', 'NOUN', 'ADP']"
+wears	274	wear	TRUE	"['VERB', 'NOUN', 'ADJ']"
+want	270	want	TRUE	"['VERB', 'NOUN']"
+have	267	have	TRUE	"['VERB', 'ADJ']"
+scare	260	scare	TRUE	"['VERB', 'NOUN', 'ADJ']"
+fell	253	fell	TRUE	['VERB']
+having	244	have	TRUE	['VERB']
+sees	234	see	TRUE	"['VERB', 'NOUN']"
+get	227	get	TRUE	"['VERB', 'NOUN']"
+scaring	220	scare	TRUE	"['VERB', 'NOUN']"
+excited	217	excit	TRUE	"['VERB', 'ADJ']"
+likes	215	like	TRUE	"['NOUN', 'VERB']"
+coming	212	come	TRUE	['VERB']
+crying	209	cri	TRUE	"['VERB', 'NOUN']"
+hands	208	hand	TRUE	"['NOUN', 'VERB']"
+throw	205	throw	TRUE	"['VERB', 'NOUN']"
+shining	203	shine	TRUE	"['VERB', 'NOUN']"
+worried	201	worri	TRUE	"['VERB', 'ADJ']"
+like	199	like	TRUE	"['VERB', 'ADP', 'ADJ']"
+does	197	doe	TRUE	['VERB']
+smiling	193	smile	TRUE	"['VERB', 'NOUN']"
+throws	190	throw	TRUE	"['VERB', 'NOUN']"
+be	180	be	TRUE	['VERB']
+kick	180	kick	TRUE	"['VERB', 'NOUN', 'ADJ']"
+hit	178	hit	TRUE	"['VERB', 'NOUN', 'PRON']"
+go	174	go	TRUE	"['VERB', 'NOUN']"
+chasing	165	chase	TRUE	['VERB']
+holds	163	hold	TRUE	['VERB']
+cooking	160	cook	TRUE	"['VERB', 'NOUN']"
+runs	155	run	TRUE	"['VERB', 'NOUN']"
+watches	151	watch	TRUE	"['NOUN', 'VERB']"
+waves	148	wave	TRUE	"['VERB', 'NOUN']"
+made	146	made	TRUE	['VERB']
+getting	145	get	TRUE	['VERB']
+tries	143	tri	TRUE	"['NOUN', 'VERB']"
+catching	141	catch	TRUE	['VERB']
+stands	141	stand	TRUE	"['VERB', 'NOUN']"
+camping	137	camp	TRUE	"['VERB', 'NOUN']"
+wanted	126	want	TRUE	['VERB']
+laughing	126	laugh	TRUE	"['VERB', 'NOUN']"
+brought	123	brought	TRUE	['VERB']
+sliding	123	slide	TRUE	['VERB']
+dropped	122	drop	TRUE	['VERB']
+had	121	had	TRUE	['VERB']
+talking	121	talk	TRUE	['VERB']
+falling	118	fall	TRUE	['VERB']
+waiting	109	wait	TRUE	['VERB']
+swinging	109	swing	TRUE	"['VERB', 'NOUN']"
+giving	106	give	TRUE	['VERB']
+sit	104	sit	TRUE	"['VERB', 'NOUN']"
+walking	104	walk	TRUE	"['VERB', 'NOUN']"
+starting	103	start	TRUE	['VERB']
+drinking	97	drink	TRUE	"['VERB', 'NOUN']"
+hiding	95	hide	TRUE	"['VERB', 'NOUN']"
+thinks	90	think	TRUE	"['VERB', 'NOUN']"
+sat	88	sat	TRUE	"['VERB', 'NOUN']"
+floating	87	float	TRUE	"['VERB', 'NOUN']"
+put	83	put	TRUE	['VERB']
+got	83	got	TRUE	['VERB']
+plays	83	play	TRUE	"['VERB', 'NOUN']"
+hurt	81	hurt	TRUE	"['VERB', 'NOUN']"
+help	81	help	TRUE	"['VERB', 'NOUN']"
+took	78	took	TRUE	['VERB']
+look	78	look	TRUE	"['VERB', 'NOUN']"
+run	77	run	TRUE	"['VERB', 'NOUN']"
+riding	74	ride	TRUE	"['VERB', 'NOUN']"
+started	70	start	TRUE	['VERB']
+camp	70	camp	TRUE	"['NOUN', 'ADJ', 'VERB']"
+ride	69	ride	TRUE	"['NOUN', 'VERB']"
+wore	69	wore	TRUE	"['VERB', 'NOUN']"
+saw	68	saw	TRUE	['VERB']
+growling	68	growl	TRUE	"['VERB', 'NOUN']"
+flew	68	flew	TRUE	"['VERB', 'NOUN', 'ADJ']"
+scares	67	scare	TRUE	"['VERB', 'NOUN']"
+were	67	were	TRUE	['VERB']
+calling	66	call	TRUE	['VERB']
+loves	65	love	TRUE	"['VERB', 'NOUN']"
+lost	65	lost	TRUE	"['VERB', 'ADJ']"
+went	64	went	TRUE	['VERB']
+shocked	63	shock	TRUE	"['VERB', 'ADJ']"
+fly	60	fli	TRUE	"['VERB', 'NOUN', 'ADJ']"
+being	57	be	TRUE	['VERB']
+carrying	57	carri	TRUE	['VERB']
+offers	57	offer	TRUE	"['VERB', 'NOUN']"
+making	56	make	TRUE	['VERB']
+take	56	take	TRUE	['VERB']
+roaring	56	roar	TRUE	"['VERB', 'NOUN']"
+slid	55	slid	TRUE	"['VERB', 'ADJ', 'NOUN']"
+petting	55	pet	TRUE	"['VERB', 'NOUN']"
+hold	53	hold	TRUE	"['VERB', 'ADJ', 'NOUN']"
+toys	53	toy	TRUE	"['NOUN', 'VERB']"
+grilling	51	grill	TRUE	"['VERB', 'NOUN']"
+found	51	found	TRUE	['VERB']
+jumped	51	jump	TRUE	['VERB']
+floats	51	float	TRUE	"['NOUN', 'VERB']"
+stole	51	stole	TRUE	"['ADJ', 'VERB', 'NOUN']"
+came	50	came	TRUE	['VERB']
+let	49	let	TRUE	['VERB']
+landed	49	land	TRUE	['VERB']
+slides	49	slide	TRUE	"['VERB', 'NOUN']"
+give	48	give	TRUE	['VERB']
+enjoying	48	enjoy	TRUE	['VERB']
+can	48	can	TRUE	['VERB']
+come	47	come	TRUE	['VERB']
+taking	47	take	TRUE	['VERB']
+telling	46	tell	TRUE	['VERB']
+yelling	45	yell	TRUE	"['VERB', 'NOUN']"
+jumps	45	jump	TRUE	"['NOUN', 'VERB']"
+watch	42	watch	TRUE	"['NOUN', 'VERB']"
+tells	42	tell	TRUE	"['NOUN', 'VERB']"
+laughs	42	laugh	TRUE	"['VERB', 'NOUN']"
+rained	42	rain	TRUE	['VERB']
+tried	41	tri	TRUE	['VERB']
+pretending	40	pretend	TRUE	['VERB']
+reaching	40	reach	TRUE	['VERB']
+slithering	40	slither	TRUE	"['VERB', 'NOUN']"
+pet	38	pet	TRUE	"['VERB', 'ADJ', 'NOUN']"
+striking	37	strike	TRUE	['VERB']
+startled	37	startl	TRUE	"['VERB', 'ADJ']"
+fall	37	fall	TRUE	"['VERB', 'NOUN']"
+burning	37	burn	TRUE	"['VERB', 'NOUN']"
+says	37	say	TRUE	['VERB']
+would	36	would	TRUE	['VERB']
+offering	36	offer	TRUE	['VERB']
+fetch	36	fetch	TRUE	"['NOUN', 'VERB']"
+shinning	35	shin	TRUE	['VERB']
+cook	35	cook	TRUE	"['VERB', 'NOUN']"
+shines	34	shine	TRUE	"['VERB', 'NOUN']"
+waved	34	wave	TRUE	['VERB']
+stuck	33	stuck	TRUE	"['VERB', 'NOUN', 'ADJ']"
+comes	33	come	TRUE	['VERB']
+know	33	know	TRUE	['VERB']
+ran	32	ran	TRUE	"['VERB', 'NOUN']"
+jump	32	jump	TRUE	"['NOUN', 'VERB']"
+cheering	32	cheer	TRUE	['VERB']
+landing	32	land	TRUE	"['NOUN', 'VERB']"
+caught	32	caught	TRUE	"['VERB', 'NOUN']"
+catches	31	catch	TRUE	['VERB']
+did	31	did	TRUE	['VERB']
+goes	31	goe	TRUE	['VERB']
+chases	31	chase	TRUE	"['NOUN', 'VERB']"
+moving	31	move	TRUE	['VERB']
+eats	31	eat	TRUE	['VERB']
+staring	31	stare	TRUE	['VERB']
+find	30	find	TRUE	['VERB']
+stand	30	stand	TRUE	"['NOUN', 'VERB']"
+gives	29	give	TRUE	['VERB']
+following	29	follow	TRUE	"['VERB', 'NOUN']"
+tossing	28	toss	TRUE	['VERB']
+falls	28	fall	TRUE	['VERB']
+could	28	could	TRUE	['VERB']
+sharing	27	share	TRUE	['VERB']
+try	27	tri	TRUE	"['VERB', 'NOUN']"
+do	27	do	TRUE	['VERB']
+bringing	27	bring	TRUE	['VERB']
+might	27	might	TRUE	['VERB']
+resting	27	rest	TRUE	['VERB']
+slithers	27	slither	TRUE	"['NOUN', 'VERB']"
+tosses	27	toss	TRUE	"['VERB', 'NOUN']"
+chase	26	chase	TRUE	"['VERB', 'NOUN']"
+showing	26	show	TRUE	['VERB']
+leave	26	leav	TRUE	['VERB']
+burned	26	burn	TRUE	"['VERB', 'ADJ']"
+calls	26	call	TRUE	['VERB']
+gets	26	get	TRUE	['VERB']
+wave	26	wave	TRUE	"['NOUN', 'VERB']"
+round	25	round	TRUE	"['NOUN', 'VERB']"
+smiles	25	smile	TRUE	"['NOUN', 'VERB']"
+notice	25	notic	TRUE	"['VERB', 'NOUN', 'ADV', 'ADP']"
+built	25	built	TRUE	"['VERB', 'NOUN']"
+strikes	24	strike	TRUE	"['NOUN', 'VERB']"
+wear	24	wear	TRUE	"['VERB', 'ADJ']"
+feeling	24	feel	TRUE	['VERB']
+waiving	24	waiv	TRUE	['VERB']
+ruined	24	ruin	TRUE	['VERB']
+make	24	make	TRUE	['VERB']
+perched	24	perch	TRUE	['VERB']
+drops	24	drop	TRUE	"['NOUN', 'VERB']"
+makes	24	make	TRUE	['VERB']
+growing	23	grow	TRUE	['VERB']
+dancing	23	danc	TRUE	['VERB']
+pick	23	pick	TRUE	"['VERB', 'NOUN']"
+land	23	land	TRUE	"['VERB', 'NOUN']"
+cooked	23	cook	TRUE	['VERB']
+leaving	23	leav	TRUE	['VERB']
+frightened	23	frighten	TRUE	"['VERB', 'ADJ']"
+stop	23	stop	TRUE	['VERB']
+missed	23	miss	TRUE	['VERB']
+baked	23	bake	TRUE	"['VERB', 'ADJ']"
+struck	22	struck	TRUE	"['VERB', 'ADJ', 'NOUN']"
+yells	22	yell	TRUE	"['NOUN', 'VERB']"
+hitting	22	hit	TRUE	['VERB']
+warming	22	warm	TRUE	['VERB']
+walks	22	walk	TRUE	"['NOUN', 'VERB']"
+grow	21	grow	TRUE	['VERB']
+doing	21	do	TRUE	['VERB']
+seems	21	seem	TRUE	['VERB']
+fighting	21	fight	TRUE	"['VERB', 'NOUN']"
+screaming	21	scream	TRUE	"['NOUN', 'VERB']"
+brings	20	bring	TRUE	['VERB']
+legged	20	leg	TRUE	"['VERB', 'ADJ']"
+climbing	19	climb	TRUE	['VERB']
+hits	19	hit	TRUE	"['VERB', 'NOUN']"
+tossed	19	toss	TRUE	['VERB']
+covering	19	cover	TRUE	['VERB']
+laying	19	lay	TRUE	['VERB']
+puts	18	put	TRUE	['VERB']
+climb	18	climb	TRUE	['VERB']
+stares	18	stare	TRUE	"['NOUN', 'VERB']"
+thundering	18	thunder	TRUE	['VERB']
+takes	18	take	TRUE	['VERB']
+sniffing	18	snif	TRUE	['VERB']
+keep	18	keep	TRUE	['VERB']
+feels	17	feel	TRUE	"['NOUN', 'VERB']"
+shows	17	show	TRUE	"['NOUN', 'VERB']"
+cover	17	cover	TRUE	"['VERB', 'NOUN']"
+worries	17	worri	TRUE	"['VERB', 'NOUN']"
+watched	17	watch	TRUE	['VERB']
+stay	17	stay	TRUE	['VERB']
+IS	17	is	TRUE	"['VERB', 'NOUN']"
+should	17	should	TRUE	['VERB']
+surprise	17	surpris	TRUE	"['NOUN', 'VERB', 'ADJ']"
+colored	16	color	TRUE	"['VERB', 'ADJ']"
+asks	16	ask	TRUE	['VERB']
+played	16	play	TRUE	['VERB']
+fallen	16	fallen	TRUE	['VERB']
+hides	15	hide	TRUE	"['NOUN', 'VERB']"
+saying	15	say	TRUE	['VERB']
+asking	15	ask	TRUE	['VERB']
+chased	15	chase	TRUE	"['VERB', 'ADJ']"
+talk	15	talk	TRUE	"['VERB', 'NOUN']"
+hug	15	hug	TRUE	"['NOUN', 'VERB']"
+dropping	15	drop	TRUE	['VERB']
+crossed	15	cross	TRUE	['VERB']
+ruin	15	ruin	TRUE	['VERB']
+enjoy	15	enjoy	TRUE	"['VERB', 'NOUN']"
+bite	15	bite	TRUE	"['VERB', 'NOUN']"
+facing	15	face	TRUE	['VERB']
+raising	15	rais	TRUE	['VERB']
+using	14	use	TRUE	['VERB']
+offered	14	offer	TRUE	['VERB']
+held	14	held	TRUE	['VERB']
+fight	14	fight	TRUE	"['NOUN', 'VERB']"
+said	14	said	TRUE	['VERB']
+done	14	done	TRUE	['VERB']
+love	14	love	TRUE	"['VERB', 'NOUN']"
+waits	14	wait	TRUE	"['NOUN', 'VERB']"
+lands	14	land	TRUE	"['NOUN', 'VERB']"
+blasting	14	blast	TRUE	['VERB']
+rolled	13	roll	TRUE	['VERB']
+passing	13	pass	TRUE	"['VERB', 'NOUN']"
+pretends	13	pretend	TRUE	['VERB']
+hide	13	hide	TRUE	"['VERB', 'NOUN']"
+ate	13	ate	TRUE	"['VERB', 'ADV', 'NOUN']"
+setting	13	set	TRUE	"['VERB', 'NOUN']"
+bouncing	13	bounc	TRUE	"['VERB', 'NOUN']"
+arguing	13	argu	TRUE	['VERB']
+taken	13	taken	TRUE	['VERB']
+ripe	13	ripe	TRUE	"['ADJ', 'VERB']"
+hates	12	hate	TRUE	['VERB']
+drop	12	drop	TRUE	"['VERB', 'NOUN']"
+cry	12	cri	TRUE	"['VERB', 'NOUN']"
+use	12	use	TRUE	['VERB']
+gone	12	gone	TRUE	['VERB']
+crawls	12	crawl	TRUE	"['NOUN', 'VERB']"
+crawling	12	crawl	TRUE	"['VERB', 'NOUN']"
+prepares	12	prepar	TRUE	['VERB']
+thrown	12	thrown	TRUE	['VERB']
+closer	11	closer	TRUE	"['ADV', 'VERB', 'ADJ']"
+rolling	11	roll	TRUE	['VERB']
+rains	11	rain	TRUE	"['VERB', 'NOUN']"
+dance	11	danc	TRUE	"['NOUN', 'VERB']"
+gave	11	gave	TRUE	['VERB']
+laughed	11	laugh	TRUE	['VERB']
+place	11	place	TRUE	"['NOUN', 'VERB']"
+stood	11	stood	TRUE	"['VERB', 'NOUN']"
+seen	11	seen	TRUE	['VERB']
+tied	11	tie	TRUE	['VERB']
+putting	11	put	TRUE	['VERB']
+care	11	care	TRUE	"['VERB', 'NOUN']"
+wishes	11	wish	TRUE	"['VERB', 'NOUN']"
+rests	11	rest	TRUE	"['NOUN', 'VERB']"
+pointing	11	point	TRUE	['VERB']
+hopes	11	hope	TRUE	['VERB']
+reach	11	reach	TRUE	['VERB']
+bring	11	bring	TRUE	['VERB']
+helping	11	help	TRUE	['VERB']
+begins	11	begin	TRUE	"['VERB', 'NOUN']"
+roars	11	roar	TRUE	"['NOUN', 'VERB']"
+beginning	11	begin	TRUE	['VERB']
+move	11	move	TRUE	"['VERB', 'NOUN']"
+pitched	11	pitch	TRUE	['VERB']
+forgot	11	forgot	TRUE	['VERB']
+raised	11	rais	TRUE	['VERB']
+holdng	11	holdng	TRUE	"['VERB', 'DET']"
+waddles	11	waddl	TRUE	"['VERB', 'NOUN']"
+showed	11	show	TRUE	['VERB']
+snuck	11	snuck	TRUE	"['NOUN', 'VERB']"
+lets	10	let	TRUE	"['VERB', 'NOUN']"
+annoyed	10	annoy	TRUE	['VERB']
+tired	10	tire	TRUE	"['VERB', 'ADJ']"
+raises	10	rais	TRUE	['VERB']
+steal	10	steal	TRUE	['VERB']
+dig	10	dig	TRUE	"['VERB', 'NOUN']"
+barbecuing	10	barbecu	TRUE	['VERB']
+dry	10	dri	TRUE	"['ADJ', 'NOUN', 'VERB']"
+wondering	10	wonder	TRUE	['VERB']
+starts	10	start	TRUE	['VERB']
+strike	9	strike	TRUE	"['NOUN', 'VERB']"
+shouts	9	shout	TRUE	"['VERB', 'NOUN']"
+been	9	been	TRUE	['VERB']
+finds	9	find	TRUE	['VERB']
+feeding	9	feed	TRUE	['VERB']
+passes	9	pass	TRUE	"['NOUN', 'VERB']"
+decide	9	decid	TRUE	['VERB']
+growls	9	growl	TRUE	"['NOUN', 'VERB']"
+soaring	9	soar	TRUE	['VERB']
+pouring	9	pour	TRUE	['VERB']
+skipping	9	skip	TRUE	['VERB']
+frowning	9	frown	TRUE	"['VERB', 'NOUN']"
+digging	9	dig	TRUE	['VERB']
+handing	9	hand	TRUE	['VERB']
+understand	9	understand	TRUE	['VERB']
+think	9	think	TRUE	['VERB']
+enjoys	9	enjoy	TRUE	['VERB']
+glad	9	glad	TRUE	"['ADJ', 'VERB']"
+teasing	9	teas	TRUE	['VERB']
+toss	9	toss	TRUE	"['ADP', 'NOUN', 'VERB']"
+dressed	8	dress	TRUE	['VERB']
+approaching	8	approach	TRUE	"['VERB', 'NOUN']"
+blasts	8	blast	TRUE	['VERB']
+sneaking	8	sneak	TRUE	['VERB']
+shade	8	shade	TRUE	"['NOUN', 'VERB']"
+show	8	show	TRUE	"['NOUN', 'VERB']"
+warns	8	warn	TRUE	['VERB']
+losing	8	lose	TRUE	['VERB']
+copying	8	copi	TRUE	['VERB']
+asked	8	ask	TRUE	['VERB']
+alarmed	8	alarm	TRUE	"['VERB', 'ADJ']"
+build	8	build	TRUE	['VERB']
+finished	8	finish	TRUE	['VERB']
+open	8	open	TRUE	"['ADJ', 'VERB']"
+astonished	8	astonish	TRUE	['VERB']
+standng	8	standng	TRUE	"['VERB', 'ADJ']"
+blocking	8	block	TRUE	['VERB']
+sneaks	8	sneak	TRUE	"['VERB', 'NOUN']"
+touching	8	touch	TRUE	['VERB']
+follows	8	follow	TRUE	['VERB']
+letting	7	let	TRUE	['VERB']
+covered	7	cover	TRUE	['VERB']
+knocked	7	knock	TRUE	['VERB']
+amused	7	amus	TRUE	['VERB']
+plan	7	plan	TRUE	"['NOUN', 'VERB']"
+confused	7	confus	TRUE	"['ADJ', 'VERB']"
+call	7	call	TRUE	"['VERB', 'NOUN']"
+wished	7	wish	TRUE	['VERB']
+better	7	better	TRUE	"['ADJ', 'VERB', 'ADV']"
+warning	7	warn	TRUE	['VERB']
+may	7	may	TRUE	['VERB']
+hovering	7	hover	TRUE	['VERB']
+striped	7	stripe	TRUE	"['NOUN', 'ADJ', 'VERB']"
+jogging	7	jog	TRUE	['VERB']
+say	7	say	TRUE	['VERB']
+feed	7	feed	TRUE	['VERB']
+followed	7	follow	TRUE	['VERB']
+argue	7	argu	TRUE	"['VERB', 'NOUN']"
+float	7	float	TRUE	"['VERB', 'NOUN']"
+told	7	told	TRUE	['VERB']
+bored	6	bore	TRUE	"['VERB', 'ADJ']"
+climbs	6	climb	TRUE	['VERB']
+needs	6	need	TRUE	"['NOUN', 'VERB']"
+heads	6	head	TRUE	"['NOUN', 'VERB']"
+climbed	6	climb	TRUE	['VERB']
+listening	6	listen	TRUE	['VERB']
+thrilled	6	thrill	TRUE	['VERB']
+plans	6	plan	TRUE	"['NOUN', 'VERB']"
+join	6	join	TRUE	['VERB']
+tell	6	tell	TRUE	['VERB']
+began	6	began	TRUE	['VERB']
+meet	6	meet	TRUE	"['VERB', 'NOUN']"
+attacking	6	attack	TRUE	"['VERB', 'NOUN']"
+pets	6	pet	TRUE	"['VERB', 'NOUN']"
+misses	6	miss	TRUE	['VERB']
+trade	6	trade	TRUE	['VERB']
+loses	6	lose	TRUE	['VERB']
+smells	6	smell	TRUE	"['VERB', 'NOUN']"
+rolls	6	roll	TRUE	"['VERB', 'NOUN']"
+wait	6	wait	TRUE	"['VERB', 'NOUN']"
+staying	6	stay	TRUE	['VERB']
+grab	6	grab	TRUE	['VERB']
+cheer	6	cheer	TRUE	['VERB']
+shouting	6	shout	TRUE	['VERB']
+tripped	6	trip	TRUE	['VERB']
+frustrated	5	frustrat	TRUE	"['VERB', 'ADJ']"
+cried	5	cri	TRUE	"['VERB', 'ADJ']"
+stitting	5	stit	TRUE	['VERB']
+keeping	5	keep	TRUE	['VERB']
+pitch	5	pitch	TRUE	"['VERB', 'NOUN']"
+pass	5	pass	TRUE	"['ADP', 'VERB']"
+carries	5	carri	TRUE	['VERB']
+storming	5	storm	TRUE	['VERB']
+attack	5	attack	TRUE	['VERB']
+invites	5	invit	TRUE	['VERB']
+preparing	5	prepar	TRUE	['VERB']
+stolen	5	stolen	TRUE	['VERB']
+hidden	5	hidden	TRUE	"['VERB', 'NOUN']"
+leaves	5	leav	TRUE	"['VERB', 'NOUN']"
+sleep	5	sleep	TRUE	['VERB']
+sailing	5	sail	TRUE	['VERB']
+snaked	5	snake	TRUE	"['VERB', 'ADJ']"
+headed	5	head	TRUE	['VERB']
+hears	5	hear	TRUE	['VERB']
+grabs	5	grab	TRUE	"['NOUN', 'VERB']"
+floated	5	float	TRUE	['VERB']
+kneeling	5	kneel	TRUE	['VERB']
+rescue	5	rescu	TRUE	"['VERB', 'NOUN']"
+launched	5	launch	TRUE	['VERB']
+marching	5	march	TRUE	['VERB']
+drinks	5	drink	TRUE	"['VERB', 'NOUN']"
+juggling	5	juggl	TRUE	['VERB']
+looked	5	look	TRUE	['VERB']
+yell	5	yell	TRUE	"['VERB', 'NOUN']"
+serving	5	serv	TRUE	['VERB']
+protecting	5	protect	TRUE	['VERB']
+start	5	start	TRUE	"['VERB', 'NOUN']"
+siting	5	site	TRUE	['VERB']
+knows	5	know	TRUE	['VERB']
+heading	5	head	TRUE	"['VERB', 'NOUN']"
+lose	5	lose	TRUE	"['VERB', 'ADV']"
+taste	5	tast	TRUE	"['VERB', 'NOUN']"
+pushed	5	push	TRUE	['VERB']
+waddling	5	waddl	TRUE	['VERB']
+feel	5	feel	TRUE	"['VERB', 'NOUN']"
