@@ -7,7 +7,7 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch_struct import SentCFG
 
 from . import utils
-from .module import CompoundCFG, ContrastiveLoss, ImageEncoder, TextEncoder
+from .as_module import CompoundCFG, ContrastiveLoss, ImageEncoder, TextEncoder
 
 class VGCPCFGs(object):
     NS_PARSER = 'parser'

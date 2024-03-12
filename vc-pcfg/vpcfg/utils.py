@@ -1,6 +1,7 @@
 import nltk
 import numpy as np
 import itertools, random, shutil
+import csv
 
 import torch
 
@@ -27,10 +28,10 @@ class Vocabulary(object):
         return len(self.word2idx)
 
 def save_checkpoint(state, is_best, curr_epoch, filename='checkpoint.pth.tar', prefix=''):
-    torch.save(state, prefix + filename)
+    torch.save(state, prefix + "/checkpoints/" + filename)
     if is_best:
-        shutil.copyfile(prefix + filename, prefix + 'model_best.pth.tar')
-    shutil.copyfile (prefix + filename, prefix + str(curr_epoch) + '.pth.tar')
+        shutil.copyfile(prefix + "/checkpoints/" + filename, prefix + "/checkpoints/" + 'model_best.pth.tar')
+    shutil.copyfile (prefix + "/checkpoints/" + filename, prefix + "/checkpoints/" + str(curr_epoch) + '.pth.tar')
 
 def adjust_learning_rate(opt, optimizer, epoch):
     """Sets the learning rate to the initial LR
@@ -309,7 +310,7 @@ def get_nonbinary_spans(actions, SHIFT = 0, REDUCE = 1):
       right = stack.pop()
       left = right
       n = 1
-      while stack[-1] is not '(':
+      while stack[-1] != '(':
         left = stack.pop()
         n += 1
       span = (left[0], right[1])
@@ -401,7 +402,7 @@ def get_nonbinary_spans_label(actions, SHIFT = 0, REDUCE = 1):
       right = stack.pop()
       left = right
       n = 1
-      while stack[-1][0] is not '(':
+      while stack[-1][0] != '(':
         left = stack.pop()
         n += 1
       span = (left[0], right[1], stack[-1][1:])
@@ -419,3 +420,10 @@ def get_nonbinary_spans_label(actions, SHIFT = 0, REDUCE = 1):
   assert(num_shift == num_reduce + 1)
   return spans, binary_actions
 
+def save_columns_to_csv(file, *columns):
+    rows = zip(*columns)
+    with open(file, "w") as f:
+        writer = csv.writer(f)
+        for row in rows:
+            writer.writerow(row)
+    

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import argparse
 import csv
+import pandas as pd
 from nltk.tag import pos_tag
 from nltk.tokenize import word_tokenize
 from nltk.stem.snowball import SnowballStemmer
@@ -16,6 +17,8 @@ try:
 except:
     nltk.download('averaged_perceptron_tagger')
     nltk.download('universal_tagset')
+    
+g_selected_stems = ["push", "rescu", "teas", "argu", "hug", "warn", "feed", "meet", "fight", "invit", "drop", "open", "ride", "pour", "brought", "prepar", "toss", "use", "climb", "rais", "walk", "hide", "smile", "cheer", "laugh", "slid", "cri", "danc", "fell", "crawl"]
 
 def get_pos_tags(captions):
     word_tag_dict = dict()
@@ -61,5 +64,32 @@ def main_get_verb_list_csv(opt):
             stem = stemmer.stem(word)
             writer.writerow([word, freq, stem, is_verb, tags])
 
+def main_get_test_item_list(opt):
+    preprocessed_dir = Path(opt.preprocessed_dir)
+    verb_list_file = preprocessed_dir / 'clean_verb_list.tsv'
+    captions_file = preprocessed_dir / 'all_caps.text'
+    out_file = preprocessed_dir / 'test_verb_ids.json'
+    item_id = 0
+    ids_to_stem_type = {}
+    verbs_df = pd.read_csv(verb_list_file, sep='\t')
+    verbs_df = verbs_df.loc[verbs_df['stem'].isin(g_selected_stems)]
+    verbs = verbs_df['word'].tolist()
+    verbs_dict_list = verbs_df.to_dict(orient='records')
+    with open(captions_file, 'r') as f:
+        for line in f.readlines():
+            for verb in verbs_dict_list:
+                if verb['word'] in line.split(" "):
+                    ids_to_stem_type[item_id] = {'stem':verb['stem'], 'v_type':verb['type'], 'o_type':verb['object']}
+                    print(verb['word'] + " : " +line)
+            item_id+=1 
+    print(len(ids_to_stem_type))
+    with open(out_file, "w") as f:
+        json.dump(ids_to_stem_type, f)
+            
+            
 if __name__ == '__main__':
-    main_get_verb_list_csv(opt)
+    # The following was used to get the list of all verbs in dataset
+    #main_get_verb_list_csv(opt)
+    # It was then hand cleaned and tagged for verb and object category and a curated list was selected. 
+    # This selected list of verbs is used to create the test item list.
+    main_get_test_item_list(opt)

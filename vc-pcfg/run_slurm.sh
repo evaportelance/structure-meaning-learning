@@ -1,16 +1,21 @@
 #!/bin/bash
-#SBATCH --job-name=babylm
+#SBATCH --job-name=vcpcfg3
 #SBATCH --output=job_output.txt
 #SBATCH --error=job_error.txt
+#SBATCH --mail-user=eva.portelance@mila.quebec
+#SBATCH --mail-type=ALL
 #SBATCH --gres=gpu:1
 #SBATCH --ntasks=1
 #SBATCH --mem=32Gb
-#SBATCH --partition=main
+#SBATCH --partition=long
 
 module load anaconda/3
-conda activate babylm-env
-#python ./train_lm.py --prefix "clean_parse_10M_data_small" --model_init "../../babylm-models/baby_small_graminduct/outputs/model_best.pth.tar" --train_data "../../data/all_train_10M_data_split.txt" --val_data "../../data/all_dev_data_split.txt" --save_model_path "../../babylm-models/baby_small_graminduct52722/" --logger_name "../../babylm-models/baby_small_graminduct52722/" --batch_size 16 --val_step 5000 --seed 52722 --log_step 5000
+conda activate py39-to113
 
-#python ./train_lm.py --prefix "clean_parse_10M_data_small" --model_init "../../babylm-models/baby_small_graminduct/outputs/model_best.pth.tar" --train_data "../../data/all_train_10M_data_split.txt" --val_data "../../data/all_dev_data_split.txt" --save_model_path "../../babylm-models/baby_small_graminduct527/" --logger_name "../../babylm-models/baby_small_graminduct527/" --batch_size 20 --val_step 5000 --seed 527 --log_step 5000
+# python ./as_train.py --num_epochs 50 --encoder_file "all_as-resn-50.npy" --img_dim 2048 --log_step 1000 --visual_mode --logger_name '../../../scratch/vcpcfg/runs/2024-03-12_joint_mtalpha_1e-10_lmalpha_1_50ep' --vse_mt_alpha 0.01 --vse_lm_alpha 1.0
 
-python ./train_lm.py --prefix "clean_parse_10M_data_small" --model_init "../../babylm-models/baby_small_graminduct/outputs/model_best.pth.tar" --train_data "../../data/all_train_10M_data_split.txt" --val_data "../../data/all_dev_data_split.txt" --save_model_path "../../babylm-models/baby_small527/" --logger_name "../../babylm-models/baby_small527/" --batch_size 20 --val_step 5000 --seed 527 --log_step 5000
+# python ./as_train.py --num_epochs 50 --encoder_file "all_as-resn-50.npy" --img_dim 2048 --log_step 1000 --visual_mode --logger_name '../../../scratch/vcpcfg/runs/2024-03-12_joint_mtalpha_1e-100_lmalpha_1_50ep' --vse_mt_alpha 0.001 --vse_lm_alpha 1.0
+
+# python ./as_train.py --num_epochs 50 --encoder_file "all_as-resn-50.npy" --img_dim 2048 --log_step 1000 --visual_mode --logger_name '../../../scratch/vcpcfg/runs/2024-03-12_joint_mtalpha_1_lmalpha_1_50ep' --vse_mt_alpha 1.0 --vse_lm_alpha 1.0
+
+python ./as_train.py --num_epochs 50 --encoder_file "all_as-resn-50.npy" --img_dim 2048 --log_step 1000 --visual_mode --logger_name '../../../scratch/vcpcfg/runs/2024-03-12_joint_mtalpha_1_lmalpha_0_50ep' --vse_mt_alpha 1.0 --vse_lm_alpha 0.0

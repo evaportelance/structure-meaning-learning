@@ -7,7 +7,7 @@ from torch.nn.utils.clip_grad import clip_grad_norm_
 from torch_struct import SentCFG
 
 from . import utils
-from .module import CompoundCFG
+from .as_module import CompoundCFG
 
 class VGCPCFGs(object):
     NS_PARSER = 'parser'

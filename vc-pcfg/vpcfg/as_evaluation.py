@@ -3,6 +3,7 @@ import numpy as np
 from collections import OrderedDict
 import torch
 from . import utils
+import torch.nn as nn
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -254,21 +255,22 @@ def validate(opt, val_loader, model, logger):
     currscore = r1 + r5 + r10 + r1i + r5i + r10i
     return val_ppl
 
-def validate_parser(opt, data_loader, model, logger, visual_mode):
-    if visual_mode:
-        return validate(opt, data_loader, model, logger)
+def semantic_bootstrapping_test(opt, sem_data_loader, model, logger, current_epoch, save=True):
+    #if visual_mode:
+    #    return validate(opt, data_loader, model, logger)
     batch_time = AverageMeter()
     val_logger = LogCollector()
-
     model.eval()
     end = time.time()
-    nbatch = len(data_loader)
+    nbatch = len(sem_data_loader)
 
     n_word, n_sent = 0, 0
     sent_f1, corpus_f1 = [], [0., 0., 0.] 
     total_ll, total_kl = 0., 0.
-
-    for i, (images, captions, lengths, ids, spans) in enumerate(data_loader):
+    ids_all = []
+    pred_spans = []
+    gold_spans = []
+    for i, (images, captions, lengths, ids, spans) in enumerate(sem_data_loader):
         model.logger = val_logger
         if torch.cuda.is_available():
             if isinstance(lengths, list):
@@ -276,40 +278,36 @@ def validate_parser(opt, data_loader, model, logger, visual_mode):
             lengths = lengths.cuda()
             captions = captions.cuda()
         bsize = captions.size(0) 
-
-        nll, kl, argmax_spans, trees, lprobs = model.forward_parser(captions, lengths)
-
+        nll, kl, span_margs, argmax_spans, trees, lprobs = model.forward_parser(captions, lengths)
         batch_time.update(time.time() - end)
         end = time.time()
-
         total_ll += nll.sum().item()
         total_kl += kl.sum().item()
         n_word += (lengths + 1).sum().item()
         n_sent += bsize
-
-        for b in range(bsize):
+        for b in range(bsize):           
             max_len = lengths[b].item() 
             pred = [(a[0], a[1]) for a in argmax_spans[b] if a[0] != a[1]]
             pred_set = set(pred[:-1])
             gold = [(spans[b][i][0].item(), spans[b][i][1].item()) for i in range(max_len - 1)] 
             gold_set = set(gold[:-1])
-
+            # scores are calculated on inside branching, excluding terminal branches and final root branch
             tp, fp, fn = utils.get_stats(pred_set, gold_set) 
             corpus_f1[0] += tp
             corpus_f1[1] += fp
-            corpus_f1[2] += fn
-            
+            corpus_f1[2] += fn          
             overlap = pred_set.intersection(gold_set)
             prec = float(len(overlap)) / (len(pred_set) + 1e-8)
-            reca = float(len(overlap)) / (len(gold_set) + 1e-8)
-            
+            reca = float(len(overlap)) / (len(gold_set) + 1e-8)           
             if len(gold_set) == 0:
                 reca = 1. 
                 if len(pred_set) == 0:
                     prec = 1.
             f1 = 2 * prec * reca / (prec + reca + 1e-8)
             sent_f1.append(f1)
-
+            ids_all.append(ids[b])
+            pred_spans.append(pred)
+            gold_spans.append(gold)
         if i % model.log_step == 0:
             logger.info(
                 'Test: [{0}/{1}]\t{e_log}\t'
@@ -319,19 +317,89 @@ def validate_parser(opt, data_loader, model, logger, visual_mode):
             )
         del captions, lengths, ids, spans
         #if i > 10: break
-
     tp, fp, fn = corpus_f1  
     prec = tp / (tp + fp)
     recall = tp / (tp + fn)
     corpus_f1 = 2 * prec * recall / (prec + recall) if prec + recall > 0 else 0.
-    sent_f1 = np.mean(np.array(sent_f1))
+    mean_sent_f1 = np.mean(np.array(sent_f1))
     recon_ppl = np.exp(total_ll / n_word)
     ppl_elbo = np.exp((total_ll + total_kl) / n_word) 
     kl = total_kl / n_sent
     info = '\nReconPPL: {:.2f}, KL: {:.4f}, PPL (Upper Bound): {:.2f}\n' + \
            'Corpus F1: {:.2f}, Sentence F1: {:.2f}'
     info = info.format(
-        recon_ppl, kl, ppl_elbo, corpus_f1 * 100, sent_f1 * 100
+        recon_ppl, kl, ppl_elbo, corpus_f1 * 100, mean_sent_f1 * 100
     )
     logger.info(info)
+    if save:
+        file = opt.logger_name + '/semantic_bootstrapping_results/' + str(current_epoch) +'.csv'
+        utils.save_columns_to_csv(file, ids_all, gold_spans, pred_spans, sent_f1)
     return ppl_elbo 
+
+
+def syntactic_bootstrapping_test(opt, syn_data_loader, model, logger, current_epoch, save=True):
+    batch_time = AverageMeter()
+    val_logger = LogCollector()
+    sim = nn.CosineSimilarity(dim=1, eps=1e-6)
+    model.eval()
+    end = time.time()
+    ids_transitives = []
+    ids_intransitives = []
+    ans_transitives = []
+    ans_intransitives = []
+    itr_ctr_all = []
+    itr_cintr_all = []
+    iintr_cintr_all = []
+    iintr_ctr_all = []
+    for i, (images_tr, captions_tr, lengths_tr, ids_tr, spans_tr, images_intr, captions_intr, lengths_intr, ids_intr, spans_intr) in enumerate(syn_data_loader):       
+        if isinstance(lengths_tr, list):
+            lengths_tr = torch.tensor(lengths_tr).long()
+            lengths_intr = torch.tensor(lengths_intr).long()      
+        bsize = captions_tr.size(0)
+        images = torch.cat((images_tr, images_intr), 0)
+        captions = torch.cat((captions_tr, captions_intr), 0)
+        lengths = torch.cat((lengths_tr, lengths_intr), 0)
+        spans = torch.cat((spans_tr, spans_intr), 0)
+        if torch.cuda.is_available():
+            lengths = lengths.cuda()
+            captions = captions.cuda()
+            images = images.cuda()
+        model.logger = val_logger
+        img_emb, cap_span_features, nll, kl, span_margs, argmax_spans, trees, lprobs = \
+            model.forward_encoder(images, captions, lengths, spans, require_grad=False)
+        mstep = (lengths * (lengths - 1) / 2).int() # (b, NT, dim) 
+        # get caption embeddings
+        cap_feats = torch.cat([cap_span_features[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0) 
+        span_marg = torch.softmax(torch.cat([span_margs[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0), -1)
+        cap_emb = torch.bmm(span_marg.unsqueeze(-2),  cap_feats).squeeze(-2)
+        cap_emb = utils.l2norm(cap_emb)
+        # split transitive and intransitive caps and images
+        img_emb_tr, img_emb_intr = torch.split(img_emb, bsize)
+        cap_emb_tr, cap_emb_intr = torch.split(cap_emb, bsize)
+        # compare cosine similarity with images
+        itr_ctr = sim(img_emb_tr, cap_emb_tr)
+        itr_cintr = sim(img_emb_tr, cap_emb_intr)
+        iintr_cintr = sim(img_emb_intr, cap_emb_intr)
+        iintr_ctr = sim(img_emb_intr, cap_emb_tr)
+        ans_tr = torch.gt(itr_ctr,itr_cintr)
+        ans_intr = torch.gt(iintr_cintr,iintr_ctr)
+        ids_transitives += ids_tr
+        ids_intransitives += ids_intr
+        itr_ctr_all += itr_ctr.tolist()
+        itr_cintr_all += itr_cintr.tolist()
+        iintr_cintr_all += iintr_cintr.tolist()
+        iintr_ctr_all += iintr_ctr.tolist()
+        ans_transitives += ans_tr.tolist()
+        ans_intransitives += ans_intr.tolist()
+        del images, captions, lengths, spans
+    n = len(ans_transitives)
+    tr_score = sum(ans_transitives) / n
+    intr_score = sum(ans_intransitives) / n
+    score = (tr_score + intr_score) / 2
+    info = '\nImage match score: {:.4f}, Transitive score: {:.4f}, Intransitive score: {:.4f} '
+    info = info.format(score, tr_score, intr_score)
+    logger.info(info)
+    if save:
+        file = opt.logger_name + '/syntactic_bootstrapping_results/' + str(current_epoch) +'.csv'
+        utils.save_columns_to_csv(file, ids_transitives, ids_intransitives, itr_ctr_all, itr_cintr_all, iintr_cintr_all, iintr_ctr_all, ans_transitives, ans_intransitives)
+    return score

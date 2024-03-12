@@ -7,7 +7,7 @@ from transformers import get_scheduler, AutoTokenizer, AutoModelForCausalLM, Aut
 #from vpcfg import data
 import vpcfg.as_dataloader as data
 from vpcfg.utils import Vocabulary, save_checkpoint
-from vpcfg.evaluation import AverageMeter, LogCollector, validate_parser
+from vpcfg.as_evaluation import AverageMeter, LogCollector, semantic_bootstrapping_test, syntactic_bootstrapping_test
 from vpcfg.as_vocab import get_vocab
 
 def train(opt, train_loader, model, epoch, val_loader):
@@ -45,7 +45,7 @@ def train(opt, train_loader, model, epoch, val_loader):
         #break
         # validate at every val_step
         if model.niter % opt.val_step == 0:
-            validate_parser(opt, val_loader, model, logger, opt.visual_mode)
+            semantic_bootstrapping_test(opt, val_loader, model, logger, epoch, save=False)
 
 if __name__ == '__main__':
     # hyper parameters
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', default=1, type=int, help='which gpu to use')
 
     #
-    parser.add_argument('--seed', default=1213, type=int, help='random seed')
+    parser.add_argument('--seed', default=527, type=int, help='random seed')
     parser.add_argument('--model_init', default=None, type=str, help='checkpoint to initialize model with')
     #parser.add_argument('--w2vec_file', default=None, type=str, help='word vector file')
     parser.add_argument('--max_length', default=40, type=int, help='max sentence length')
@@ -119,8 +119,8 @@ if __name__ == '__main__':
     parser.add_argument('--beta1', default=0.75, type=float, help='beta1 for adam')
     parser.add_argument('--beta2', default=0.999, type=float, help='beta2 for adam')
     #
-    parser.add_argument('--vse_mt_alpha', type=float, default=0.01)
-    parser.add_argument('--vse_lm_alpha', type=float, default=1.0)
+    parser.add_argument('--vse_mt_alpha', type=float, default=0.01, help='weight parameter for matching loss')
+    parser.add_argument('--vse_lm_alpha', type=float, default=1.0,  help='weight parameter for  loss')
 
     opt = parser.parse_args()
     np.random.seed(opt.seed)
@@ -131,6 +131,9 @@ if __name__ == '__main__':
     else:
         print('Creating {}'.format(opt.logger_name))
         os.mkdir(opt.logger_name)
+        os.mkdir(opt.logger_name+'/syntactic_bootstrapping_results')
+        os.mkdir(opt.logger_name+'/semantic_bootstrapping_results')
+        os.mkdir(opt.logger_name+'/checkpoints')
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -166,38 +169,39 @@ if __name__ == '__main__':
         checkpoint = torch.load(opt.model_init, map_location='cpu')
         parser_params = checkpoint['model'][Model.NS_PARSER]
         model.parser.load_state_dict(parser_params)
-
-    # Load data loaders
-    data.set_constant(opt.visual_mode, opt.max_length)
-    train_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, load_img=opt.visual_mode, encoder_file=opt.encoder_file, img_dim=opt.img_dim, shuffle=opt.shuffle, sampler=sampler, split='train', tiny=opt.tiny)
-    val_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, load_img=opt.visual_mode, encoder_file=opt.encoder_file, img_dim=opt.img_dim,  shuffle=False, sampler=None, split='val', tiny=opt.tiny)
-
-    save_checkpoint({
+        start_epoch = checkpoint['epoch'] + 1
+    else:
+        save_checkpoint({
         'epoch': -1,
         'model': model.get_state_dict(),
         'best_rsum': -1,
         'opt': opt,
-        'Eiters': -1,
-    }, False, -1, prefix=opt.logger_name + '/')
+        'Eiters': -1 }, False, -1, prefix=opt.logger_name)
+        start_epoch = 0
 
-    if False and opt.model_init:
-        #data.set_rnd_seed(10101)
-        validate_parser(opt, val_loader, model, logger, opt.visual_mode)
-
+    # Load data loaders
+    data.set_constant(opt.visual_mode, opt.max_length)
+    train_loader, syn_test_loader, sem_test_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, load_img=opt.visual_mode, encoder_file=opt.encoder_file, img_dim=opt.img_dim, shuffle=opt.shuffle, sampler=sampler, tiny=opt.tiny)
+    logger.info("Number of train items: {}, semantic test items: {}, syntactic test items: {}".format(train_loader.dataset.length, sem_test_loader.dataset.length, syn_test_loader.dataset.length))
+    
+    if start_epoch == 0:
+        semantic_bootstrapping_test(opt, sem_test_loader, model, logger, -1)
+        syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, -1)
     best_rsum = float('inf')
     for epoch in range(opt.num_epochs):
+        current_epoch = start_epoch + epoch
         # train for one epoch
-        train(opt, train_loader, model, epoch, val_loader)
+        train(opt, train_loader, model, epoch, syn_test_loader)
         # evaluate on validation set using VSE metrics
-        rsum = validate_parser(opt, val_loader, model, logger, opt.visual_mode)
-        #break
+        rsum = semantic_bootstrapping_test(opt, sem_test_loader, model, logger, current_epoch)
+        score = syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, current_epoch)
         # remember best R@ sum and save checkpoint
         is_best = rsum < best_rsum
         best_rsum = max(rsum, best_rsum)
         save_checkpoint({
-            'epoch': epoch + 1,
+            'epoch': current_epoch,
             'model': model.get_state_dict(),
             'best_rsum': best_rsum,
             'opt': opt,
             'Eiters': model.niter,
-        }, is_best, epoch, prefix=opt.logger_name + '/')
+        }, is_best, current_epoch, prefix=opt.logger_name)

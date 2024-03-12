@@ -150,7 +150,12 @@ class ImageEncoder(torch.nn.Module):
     def __init__(self, opt):
         super(ImageEncoder, self).__init__()
         self.no_imgnorm = opt.no_imgnorm
-        self.fc = torch.nn.Linear(opt.img_dim, opt.sem_dim)
+        hidden_dim = round(opt.img_dim/2+opt.sem_dim)
+        self.mlp = nn.Sequential(
+            torch.nn.Linear(opt.img_dim,  hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_dim, opt.sem_dim)
+        )
         self._initialize()
 
     def _initialize(self):
@@ -160,7 +165,7 @@ class ImageEncoder(torch.nn.Module):
 
     def forward(self, images):
         # why: assuming that the precomputed features are already l2-normalized
-        features = self.fc(images.float())
+        features = self.mlp(images.float())
         if not self.no_imgnorm:
             features = l2norm(features)
         return features
