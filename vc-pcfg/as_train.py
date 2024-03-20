@@ -74,6 +74,7 @@ if __name__ == '__main__':
     
     parser.add_argument('--encoder_file', default=None, help='image representations file name to use')
     parser.add_argument('--tiny', action='store_true', help='if testing will create tiny dataloaders')
+    parser.add_argument('--one_shot', action='store_true', help='If split for ssyntactic bootstrapping test should be one-shot')
     parser.add_argument('--shuffle', action='store_true', help='shuffle training data')
 
     #
@@ -121,6 +122,8 @@ if __name__ == '__main__':
     #
     parser.add_argument('--vse_mt_alpha', type=float, default=0.01, help='weight parameter for matching loss')
     parser.add_argument('--vse_lm_alpha', type=float, default=1.0,  help='weight parameter for  loss')
+    parser.add_argument('--sem_first', action='store_true', help='Run semantics first model')
+    parser.add_argument('--syn_first', action='store_true', help='Run syntax first model')
 
     opt = parser.parse_args()
     np.random.seed(opt.seed)
@@ -181,27 +184,112 @@ if __name__ == '__main__':
 
     # Load data loaders
     data.set_constant(opt.visual_mode, opt.max_length)
-    train_loader, syn_test_loader, sem_test_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, load_img=opt.visual_mode, encoder_file=opt.encoder_file, img_dim=opt.img_dim, shuffle=opt.shuffle, sampler=sampler, tiny=opt.tiny)
+    train_loader, syn_test_loader, sem_test_loader = data.get_data_iters(opt.data_path, opt.prefix, vocab, opt.batch_size, opt.workers, load_img=opt.visual_mode, encoder_file=opt.encoder_file, img_dim=opt.img_dim, shuffle=opt.shuffle, sampler=sampler, tiny=opt.tiny, one_shot=opt.one_shot)
     logger.info("Number of train items: {}, semantic test items: {}, syntactic test items: {}".format(train_loader.dataset.length, sem_test_loader.dataset.length, syn_test_loader.dataset.length))
     
     if start_epoch == 0:
         semantic_bootstrapping_test(opt, sem_test_loader, model, logger, -1)
         syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, -1)
     best_rsum = float('inf')
-    for epoch in range(opt.num_epochs):
-        current_epoch = start_epoch + epoch
-        # train for one epoch
-        train(opt, train_loader, model, epoch, syn_test_loader)
-        # evaluate on validation set using VSE metrics
-        rsum = semantic_bootstrapping_test(opt, sem_test_loader, model, logger, current_epoch)
-        score = syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, current_epoch)
-        # remember best R@ sum and save checkpoint
-        is_best = rsum < best_rsum
-        best_rsum = max(rsum, best_rsum)
-        save_checkpoint({
-            'epoch': current_epoch,
-            'model': model.get_state_dict(),
-            'best_rsum': best_rsum,
-            'opt': opt,
-            'Eiters': model.niter,
-        }, is_best, current_epoch, prefix=opt.logger_name)
+    
+    if opt.sem_first:
+        model.vse_mt_alpha = 1.0
+        model.vse_lm_alpha = 0.0
+        logger.info("Training model on semantics loss first.")
+        for epoch in range(int(opt.num_epochs/2)):
+            current_epoch = start_epoch + epoch
+            # train for one epoch
+            train(opt, train_loader, model, epoch, syn_test_loader)
+            # evaluate on validation set using VSE metrics
+            rsum = semantic_bootstrapping_test(opt, sem_test_loader, model, logger, current_epoch)
+            score = syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, current_epoch)
+            # remember best R@ sum and save checkpoint
+            is_best = rsum < best_rsum
+            best_rsum = max(rsum, best_rsum)
+            save_checkpoint({
+                'epoch': current_epoch,
+                'model': model.get_state_dict(),
+                'best_rsum': best_rsum,
+                'opt': opt,
+                'Eiters': model.niter,
+            }, is_best, current_epoch, prefix=opt.logger_name)
+        model.vse_mt_alpha = 1.0
+        model.vse_lm_alpha = 1.0
+        logger.info("Training model on syntax loss second.")
+        for epoch in range(int(opt.num_epochs/2), opt.num_epochs):
+            current_epoch = start_epoch + epoch
+            # train for one epoch
+            train(opt, train_loader, model, epoch, syn_test_loader)
+            # evaluate on validation set using VSE metrics
+            rsum = semantic_bootstrapping_test(opt, sem_test_loader, model, logger, current_epoch)
+            score = syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, current_epoch)
+            # remember best R@ sum and save checkpoint
+            is_best = rsum < best_rsum
+            best_rsum = max(rsum, best_rsum)
+            save_checkpoint({
+                'epoch': current_epoch,
+                'model': model.get_state_dict(),
+                'best_rsum': best_rsum,
+                'opt': opt,
+                'Eiters': model.niter,
+            }, is_best, current_epoch, prefix=opt.logger_name)
+        
+    elif opt.syn_first:
+        model.vse_mt_alpha = 0.0
+        model.vse_lm_alpha = 1.0
+        logger.info("Training model on syntax loss first.")
+        for epoch in range(int(opt.num_epochs/2)):
+            current_epoch = start_epoch + epoch
+            # train for one epoch
+            train(opt, train_loader, model, epoch, syn_test_loader)
+            # evaluate on validation set using VSE metrics
+            rsum = semantic_bootstrapping_test(opt, sem_test_loader, model, logger, current_epoch)
+            score = syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, current_epoch)
+            # remember best R@ sum and save checkpoint
+            is_best = rsum < best_rsum
+            best_rsum = max(rsum, best_rsum)
+            save_checkpoint({
+                'epoch': current_epoch,
+                'model': model.get_state_dict(),
+                'best_rsum': best_rsum,
+                'opt': opt,
+                'Eiters': model.niter,
+            }, is_best, current_epoch, prefix=opt.logger_name)
+        model.vse_mt_alpha = 1.0
+        model.vse_lm_alpha = 1.0
+        logger.info("Training model on semantics loss second.")
+        for epoch in range(int(opt.num_epochs/2), opt.num_epochs):
+            current_epoch = start_epoch + epoch
+            # train for one epoch
+            train(opt, train_loader, model, epoch, syn_test_loader)
+            # evaluate on validation set using VSE metrics
+            rsum = semantic_bootstrapping_test(opt, sem_test_loader, model, logger, current_epoch)
+            score = syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, current_epoch)
+            # remember best R@ sum and save checkpoint
+            is_best = rsum < best_rsum
+            best_rsum = max(rsum, best_rsum)
+            save_checkpoint({
+                'epoch': current_epoch,
+                'model': model.get_state_dict(),
+                'best_rsum': best_rsum,
+                'opt': opt,
+                'Eiters': model.niter,
+            }, is_best, current_epoch, prefix=opt.logger_name)
+    else:
+        for epoch in range(opt.num_epochs):
+            current_epoch = start_epoch + epoch
+            # train for one epoch
+            train(opt, train_loader, model, epoch, syn_test_loader)
+            # evaluate on validation set using VSE metrics
+            rsum = semantic_bootstrapping_test(opt, sem_test_loader, model, logger, current_epoch)
+            score = syntactic_bootstrapping_test(opt, syn_test_loader, model, logger, current_epoch)
+            # remember best R@ sum and save checkpoint
+            is_best = rsum < best_rsum
+            best_rsum = max(rsum, best_rsum)
+            save_checkpoint({
+                'epoch': current_epoch,
+                'model': model.get_state_dict(),
+                'best_rsum': best_rsum,
+                'opt': opt,
+                'Eiters': model.niter,
+            }, is_best, current_epoch, prefix=opt.logger_name)

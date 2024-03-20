@@ -218,8 +218,9 @@ def get_data_iters(data_path, data_split, vocab,
                     load_img=True,
                     encoder_file = 'all_as-resn-50.npy',
                     img_dim=2048,
-                    tiny = False):
-    dset = AsDataset(data_path, data_split, vocab, load_img, encoder_file, img_dim, batch_size, tiny, one_shot=True)
+                    tiny = False,
+                    one_shot=True):
+    dset = AsDataset(data_path, data_split, vocab, load_img, encoder_file, img_dim, batch_size, tiny, one_shot=one_shot)
     dset_all = AsDataset(data_path, data_split, vocab, load_img, encoder_file, img_dim, batch_size, tiny, one_shot=False)
     if sampler:
         model = SortedRandomSampler

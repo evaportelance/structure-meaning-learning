@@ -218,6 +218,7 @@ class TextEncoder(torch.nn.Module):
             feat = feat.view(-1, k + 1, dim) 
             feat = self.enc_out(self.enc_rnn(feat)[0])
             feat = feat.view(b, N - k, k + 1, self.NT, self.sem_dim)
+            #sum LSTM output across each state for given string
             feat = l2norm(feat.sum(2))
             end_idx = beg_idx + N - k 
             feats[:, beg_idx : end_idx] = feat 

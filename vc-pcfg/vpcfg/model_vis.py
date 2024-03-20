@@ -24,6 +24,7 @@ class VGCPCFGs(object):
 
         self.vse_mt_alpha = opt.vse_mt_alpha
         self.vse_lm_alpha = opt.vse_lm_alpha
+        self.sem_first = opt.sem_first
 
         self.loss_criterion = ContrastiveLoss(margin=opt.margin)
 
@@ -87,10 +88,8 @@ class VGCPCFGs(object):
     def forward_parser(self, captions, lengths):
         params, kl = self.parser(captions)
         dist = SentCFG(params, lengths=lengths)
-
         the_spans = dist.argmax[-1]
         argmax_spans, trees, lprobs = utils.extract_parses(the_spans, lengths.tolist(), inc=0) 
-
         ll, span_margs = dist.inside_im
         nll = -ll
         kl = torch.zeros_like(nll) if kl is None else kl
@@ -106,30 +105,41 @@ class VGCPCFGs(object):
             parser_outs = self.forward_parser(captions, lengths) 
             txt_outputs = self.txt_enc(captions, lengths, parser_outs[-3])
         return (img_emb, txt_outputs) + parser_outs
-
+    
     def forward_loss(self, base_img_emb, cap_span_features, lengths, span_bounds, span_margs):
         b = base_img_emb.size(0)
         N = lengths.max(0)[0]
         nstep = int(N * (N - 1) / 2)
         mstep = (lengths * (lengths - 1) / 2).int()
         # focus on only short spans
-        nstep = int(mstep.float().mean().item() / 2)
-
+####################################################################
+        #nstep = int(mstep.float().mean().item() / 2)
         matching_loss_matrix = torch.zeros(
-            b, nstep, device=base_img_emb.device
-        )
-        for k in range(nstep):
-            img_emb = base_img_emb
-            cap_emb = cap_span_features[:, k] 
-            
-            cap_marg = span_margs[:, k].softmax(-1).unsqueeze(-2)
-            cap_emb = torch.matmul(cap_marg, cap_emb).squeeze(-2)
-
-            cap_emb = utils.l2norm(cap_emb) 
+                b, nstep, device=base_img_emb.device
+            )
+        img_emb = base_img_emb
+        # If doing semantics first only consider the matching loss between complete caption embedding and images (not intermediate spans as well)
+        if self.sem_first and self.vse_lm_alpha == 0.0:
+            cap_emb = torch.cat([cap_span_features[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0) 
+            cap_emb = cap_emb.sum(-2)
+            #cap_marg = torch.softmax(torch.cat([span_margs[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0), -1)
+            #cap_emb = torch.bmm(cap_marg.unsqueeze(-2),  cap_emb).squeeze(-2)
+            cap_emb = utils.l2norm(cap_emb)
             loss = self.loss_criterion(img_emb, cap_emb)
-            matching_loss_matrix[:, k] = loss
-        span_margs = span_margs.sum(-1)
-        expected_loss = span_margs[:, : nstep] * matching_loss_matrix 
+            #cap_margs = torch.cat([span_margs[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0).sum(-1)
+            #expected_loss = cap_margs * loss
+            #expected_loss = expected_loss.sum(-1)
+            expected_loss = loss.sum(-1)
+        else:
+            for k in range(nstep):
+                cap_emb = cap_span_features[:, k]             
+                cap_marg = span_margs[:, k].softmax(-1).unsqueeze(-2)
+                cap_emb = torch.matmul(cap_marg, cap_emb).squeeze(-2)
+                cap_emb = utils.l2norm(cap_emb) 
+                loss = self.loss_criterion(img_emb, cap_emb)
+                matching_loss_matrix[:, k] = loss
+            span_margs = span_margs.sum(-1)
+            expected_loss = span_margs[:, : nstep] * matching_loss_matrix 
         expected_loss = expected_loss.sum(-1)
         return expected_loss
 

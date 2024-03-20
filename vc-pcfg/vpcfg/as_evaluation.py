@@ -345,61 +345,175 @@ def syntactic_bootstrapping_test(opt, syn_data_loader, model, logger, current_ep
     end = time.time()
     ids_transitives = []
     ids_intransitives = []
-    ans_transitives = []
-    ans_intransitives = []
-    itr_ctr_all = []
-    itr_cintr_all = []
-    iintr_cintr_all = []
-    iintr_ctr_all = []
-    for i, (images_tr, captions_tr, lengths_tr, ids_tr, spans_tr, images_intr, captions_intr, lengths_intr, ids_intr, spans_intr) in enumerate(syn_data_loader):       
+    cap_score_tr = []
+    cap_score_intr = []
+    tree_score_tr = []
+    tree_score_intr = []
+    span_score_tr = []
+    span_score_intr = []
+    short_tree_score_tr = []
+    short_tree_score_intr = []
+    short_span_score_tr = []
+    short_span_score_intr = []
+#     itr_ctr_all = []
+#     itr_cintr_all = []
+#     iintr_cintr_all = []
+#     iintr_ctr_all = []
+    for i, (images_tr, captions_tr, lengths_tr, ids_tr, spans_tr, images_intr, captions_intr, lengths_intr, ids_intr, spans_intr) in enumerate(syn_data_loader): 
         if isinstance(lengths_tr, list):
             lengths_tr = torch.tensor(lengths_tr).long()
             lengths_intr = torch.tensor(lengths_intr).long()      
         bsize = captions_tr.size(0)
-        images = torch.cat((images_tr, images_intr), 0)
-        captions = torch.cat((captions_tr, captions_intr), 0)
-        lengths = torch.cat((lengths_tr, lengths_intr), 0)
-        spans = torch.cat((spans_tr, spans_intr), 0)
+        images = torch.cat((images_tr, images_intr, images_intr, images_tr), 0)
+        captions = torch.cat((captions_tr, captions_tr, captions_intr, captions_intr), 0)
+        lengths = torch.cat((lengths_tr, lengths_tr, lengths_intr, lengths_intr), 0)
+        spans = torch.cat((spans_tr, spans_tr, spans_intr, spans_intr), 0)
         if torch.cuda.is_available():
             lengths = lengths.cuda()
             captions = captions.cuda()
             images = images.cuda()
         model.logger = val_logger
         img_emb, cap_span_features, nll, kl, span_margs, argmax_spans, trees, lprobs = \
-            model.forward_encoder(images, captions, lengths, spans, require_grad=False)
+            model.forward_encoder(images, captions, lengths, spans, require_grad=False) 
         mstep = (lengths * (lengths - 1) / 2).int() # (b, NT, dim) 
         # get caption embeddings
+        # if only using whole string embedding
         cap_feats = torch.cat([cap_span_features[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0) 
         span_marg = torch.softmax(torch.cat([span_margs[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0), -1)
         cap_emb = torch.bmm(span_marg.unsqueeze(-2),  cap_feats).squeeze(-2)
+        #cap_emb = cap_feats.sum(-2)
         cap_emb = utils.l2norm(cap_emb)
-        # split transitive and intransitive caps and images
-        img_emb_tr, img_emb_intr = torch.split(img_emb, bsize)
-        cap_emb_tr, cap_emb_intr = torch.split(cap_emb, bsize)
+        # if averaging across constituents
+        tree_emb = []
+        mean_span_sim = []
+        short_tree_emb = []
+        short_mean_span_sim = []
+        for b, nstep in enumerate(mstep):
+            span_embs = []
+            span_sims = []
+            for k in range(nstep):
+                span_feats = cap_span_features[b, k] 
+                span_marg = span_margs[b, k].softmax(-1).unsqueeze(-2)
+                span_emb = torch.matmul(span_marg, span_feats).squeeze(-2)
+                span_emb = utils.l2norm(span_emb)
+                span_embs.append(span_emb)
+                sim = utils.cosine_sim(img_emb[b].unsqueeze(0), span_emb.unsqueeze(0)).squeeze(0)
+                span_sims.append(sim)
+            #average embeddings across spans  (I could also try matching span to image directly and taking average score OR comparing spans directly... but lengths dont always match)
+            ## short spans only
+            nstep = int(mstep.float().mean().item() / 2)
+            short_span_emb = torch.mean(torch.stack(span_embs[:nstep]), 0)
+            short_span_sim = torch.mean(torch.stack(span_sims[:nstep]), 0)
+            ##
+            span_embs = torch.stack(span_embs)
+            span_sims = torch.stack(span_sims)
+            span_emb = torch.mean(span_embs, 0)
+            span_sim = torch.mean(span_sims, 0)
+            tree_emb.append(span_emb)
+            mean_span_sim.append(span_sim)
+            short_tree_emb.append(short_span_emb)
+            short_mean_span_sim.append(short_span_sim)
+        tree_emb = torch.stack(tree_emb)
+        short_tree_emb = torch.stack(short_tree_emb) 
         # compare cosine similarity with images
-        itr_ctr = sim(img_emb_tr, cap_emb_tr)
-        itr_cintr = sim(img_emb_tr, cap_emb_intr)
-        iintr_cintr = sim(img_emb_intr, cap_emb_intr)
-        iintr_ctr = sim(img_emb_intr, cap_emb_tr)
-        ans_tr = torch.gt(itr_ctr,itr_cintr)
-        ans_intr = torch.gt(iintr_cintr,iintr_ctr)
+        mean_span_sim = torch.cat(mean_span_sim, 0)
+        short_mean_span_sim = torch.cat(short_mean_span_sim, 0)
+        cap_sim = utils.cosine_sim(img_emb, cap_emb).diag()
+        tree_sim =utils.cosine_sim(img_emb, tree_emb).diag()
+        short_tree_sim =utils.cosine_sim(img_emb, short_tree_emb).diag()
+        # split results into 4 comparison groups
+        sim_tr_pos, sim_tr_neg, sim_intr_pos, sim_intr_neg = torch.split(cap_sim, bsize)
+        cap_ans_tr = torch.gt(sim_tr_pos, sim_tr_neg)
+        cap_ans_intr = torch.gt(sim_intr_pos, sim_intr_neg)
+        sim_tr_pos, sim_tr_neg, sim_intr_pos, sim_intr_neg = torch.split(mean_span_sim, bsize)  
+        span_ans_tr = torch.gt(sim_tr_pos, sim_tr_neg)
+        span_ans_intr = torch.gt(sim_intr_pos, sim_intr_neg)
+        sim_tr_pos, sim_tr_neg, sim_intr_pos, sim_intr_neg = torch.split(short_mean_span_sim, bsize)   
+        short_span_ans_tr = torch.gt(sim_tr_pos, sim_tr_neg)
+        short_span_ans_intr = torch.gt(sim_intr_pos, sim_intr_neg)
+        sim_tr_pos, sim_tr_neg, sim_intr_pos, sim_intr_neg = torch.split(tree_sim, bsize) 
+        tree_ans_tr = torch.gt(sim_tr_pos, sim_tr_neg)
+        tree_ans_intr = torch.gt(sim_intr_pos, sim_intr_neg)
+        sim_tr_pos, sim_tr_neg, sim_intr_pos, sim_intr_neg = torch.split(short_tree_sim, bsize) 
+        short_tree_ans_tr = torch.gt(sim_tr_pos, sim_tr_neg)
+        short_tree_ans_intr = torch.gt(sim_intr_pos, sim_intr_neg)
         ids_transitives += ids_tr
         ids_intransitives += ids_intr
-        itr_ctr_all += itr_ctr.tolist()
-        itr_cintr_all += itr_cintr.tolist()
-        iintr_cintr_all += iintr_cintr.tolist()
-        iintr_ctr_all += iintr_ctr.tolist()
-        ans_transitives += ans_tr.tolist()
-        ans_intransitives += ans_intr.tolist()
+        cap_score_tr += cap_ans_tr.tolist()
+        cap_score_intr += cap_ans_intr.tolist()
+        tree_score_tr += tree_ans_tr.tolist()
+        tree_score_intr += tree_ans_intr.tolist()
+        span_score_tr += span_ans_tr.tolist()
+        span_score_intr += span_ans_intr.tolist()
+        short_tree_score_tr += short_tree_ans_tr.tolist()
+        short_tree_score_intr += short_tree_ans_intr.tolist()
+        short_span_score_tr += short_span_ans_tr.tolist()
+        short_span_score_intr += short_span_ans_intr.tolist()
+#         itr_ctr_all += sims_tr_tr.tolist()
+#         itr_cintr_all += sims_tr_intr.tolist()
+#         iintr_cintr_all += sims_intr_intr.tolist()
+#         iintr_ctr_all += sims_intr_tr.tolist()
         del images, captions, lengths, spans
-    n = len(ans_transitives)
-    tr_score = sum(ans_transitives) / n
-    intr_score = sum(ans_intransitives) / n
-    score = (tr_score + intr_score) / 2
-    info = '\nImage match score: {:.4f}, Transitive score: {:.4f}, Intransitive score: {:.4f} '
-    info = info.format(score, tr_score, intr_score)
-    logger.info(info)
     if save:
         file = opt.logger_name + '/syntactic_bootstrapping_results/' + str(current_epoch) +'.csv'
-        utils.save_columns_to_csv(file, ids_transitives, ids_intransitives, itr_ctr_all, itr_cintr_all, iintr_cintr_all, iintr_ctr_all, ans_transitives, ans_intransitives)
-    return score
+        utils.save_columns_to_csv(file, ids_transitives, ids_intransitives, cap_score_tr, cap_score_intr, tree_score_tr, tree_score_intr, span_score_tr, span_score_intr, short_tree_score_tr, short_tree_score_intr, short_span_score_tr, short_span_score_intr)
+    n = len(ids_transitives)
+    cap_score_tr = sum(cap_score_tr) / n
+    cap_score_intr = sum(cap_score_intr) / n
+    tree_score_tr = sum(tree_score_tr) / n
+    tree_score_intr = sum(tree_score_intr) / n
+    span_score_tr = sum(span_score_tr) / n
+    span_score_intr = sum(span_score_intr) / n
+    short_tree_score_tr = sum(short_tree_score_tr) / n
+    short_tree_score_intr = sum(short_tree_score_intr) / n
+    short_span_score_tr = sum(short_span_score_tr) / n
+    short_span_score_intr = sum(short_span_score_intr) / n
+    cap_score = (cap_score_tr + cap_score_intr) / 2
+    tree_score = (tree_score_tr + tree_score_intr) / 2
+    span_score = (span_score_tr + span_score_intr) / 2
+    short_tree_score = (short_tree_score_tr + short_tree_score_intr) / 2
+    short_span_score = (short_span_score_tr + short_span_score_intr) / 2
+    info = '\nSyntactic bootstapping\n Cap score: {:.4f}, Cap transitive score: {:.4f}, Cap intransitive score: {:.4f}\n Tree score: {:.4f}, Tree transitive score: {:.4f}, Tree intransitive score: {:.4f}\n Span score: {:.4f}, Span transitive score: {:.4f}, Span intransitive score: {:.4f}\n Short Tree score: {:.4f}, Short Tree transitive score: {:.4f}, Short Tree intransitive score: {:.4f}\n Short Span score: {:.4f}, Short Span transitive score: {:.4f}, Short Span intransitive score: {:.4f}\n'
+    info = info.format(cap_score, cap_score_tr, cap_score_intr, tree_score, tree_score_tr, tree_score_intr, span_score, span_score_tr, span_score_intr, short_tree_score, short_tree_score_tr, short_tree_score_intr, short_span_score, short_span_score_tr, short_span_score_intr)
+    logger.info(info)
+    return span_score
+
+
+# img_emb_tr, img_emb_intr = torch.split(img_emb, bsize)
+#         print(img_emb_tr.shape)
+#         cap_span_features_tr, cap_span_features_intr = torch.split(cap_span_features, bsize)
+#         print(cap_span_features_tr.shape)
+#         span_margs_tr, span_margs_tr = 
+#         argmax_spans_tr, argmax_spans_intr = torch.split(argmax_spans, bsize)
+        
+#         for b in range(bsize):
+#             pred_tr = [(a[0], a[1]) for a in argmax_spans_tr[b] if a[0] != a[1]]
+#             pred_intr = [(a[0], a[1]) for a in argmax_spans_intr[b] if a[0] != a[1]]
+            
+        
+#         N = lengths.max(0)[0]
+#         #nstep = int(N * (N - 1) / 2)
+#         mstep = (lengths * (lengths - 1) / 2).int()
+#         # focus on only short spans
+#         #nstep = int(mstep.float().mean().item() / 2)
+#         nstep = int(mstep.float().mean().item())
+#         matching_matrix = torch.zeros(bsize, nstep, device=img_emb.device)
+#         #if using constituents
+#         for b in range(bsize):
+#             for k in range(nstep):
+#                 print(k)
+#                 img_tr = img_emb_tr[b]
+#                 img_intr = img_emb_intr[b]
+#                 cap_tr = cap_span_features_tr[b, k]
+#                 cap_intr = cap_span_features_intr[b, k] 
+#                 cap_marg = span_margs[b, k].softmax(-1).unsqueeze(-2)
+#                 cap_emb = torch.matmul(cap_marg, cap_emb).squeeze(-2)
+#                 cap_emb = utils.l2norm(cap_emb)
+                
+#             print(cap_emb.shape)
+#             sims = utils.cosine_sim(img_emb, cap_emb)
+#             print(sims.shape)
+#             print(sims)
+#             break
+#         break
+            
