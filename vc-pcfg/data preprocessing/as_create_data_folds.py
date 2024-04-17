@@ -85,6 +85,23 @@ def main_get_test_item_list(opt):
     print(len(ids_to_stem_type))
     with open(out_file, "w") as f:
         json.dump(ids_to_stem_type, f)
+        
+def main_create_id_dataframe(opt):
+    preprocessed_dir = Path(opt.preprocessed_dir)
+    id_json_file = preprocessed_dir / 'test_verb_ids.json'
+    id_csv_file = preprocessed_dir / 'test_verb_ids.csv'
+    with id_json_file.open("r") as f:
+        id_dict = json.load(f)
+    item_list = list()
+    for idx in id_dict:
+        item = {'id': idx,
+               'info': id_dict[idx]}
+        item_list.append(item)
+    id_df = pd.json_normalize(item_list, meta=['id', ['info', 'stem'], ['info', 'v_type'], ['info','o_type']])
+    id_df.columns = ['id','stem','verb_type','object_type']
+    id_df.to_csv(id_csv_file, index=False) 
+   
+    
             
             
 if __name__ == '__main__':
@@ -92,4 +109,6 @@ if __name__ == '__main__':
     #main_get_verb_list_csv(opt)
     # It was then hand cleaned and tagged for verb and object category and a curated list was selected. 
     # This selected list of verbs is used to create the test item list.
-    main_get_test_item_list(opt)
+    #main_get_test_item_list(opt)
+    # I also created a csv version of test item list for analysis
+    main_create_id_dataframe(opt)

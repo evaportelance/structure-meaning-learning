@@ -92,6 +92,8 @@ class AsDataset(data.Dataset):
         removed, idx = list(), -1
         with open(os.path.join(data_path, 'test_verb_ids.json'), 'r') as f:
             test_ids = json.load(f)
+        with open(os.path.join(data_path, 'test_verb_ids_indist.json'), 'r') as f:
+            test_ids_indist = json.load(f)
         with open(os.path.join(data_path, f'{data_split}_caps.json'), 'r') as f1, open(os.path.join(data_path, f'{data_split}.id'), 'r') as f2:
             for line, img_id in zip(f1.readlines(), f2.readlines()):
                 if tiny and idx > 1000 :
@@ -103,10 +105,15 @@ class AsDataset(data.Dataset):
                     removed.append((idx, len(caption)))
                     continue
                 if str(idx) in test_ids:
-                    v_type = test_ids[str(idx)]['v_type']
-                    self.test_ids_contrastive[v_type].append((int(img_id), caption, span, idx))
-                    if not one_shot:
-                        self.ids_captions_spans.append((int(img_id), caption, span))  
+                    if one_shot:
+                        v_type = test_ids[str(idx)]['v_type']
+                        self.test_ids_contrastive[v_type].append((int(img_id), caption, span, idx))
+                    else:
+                        if idx in test_ids_indist:
+                            v_type = test_ids[str(idx)]['v_type']
+                            self.test_ids_contrastive[v_type].append((int(img_id), caption, span, idx))
+                        else:
+                            self.ids_captions_spans.append((int(img_id), caption, span))  
                 else:
                     self.ids_captions_spans.append((int(img_id), caption, span))                    
         self.length = len(self.ids_captions_spans)
