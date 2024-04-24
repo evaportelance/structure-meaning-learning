@@ -5,20 +5,20 @@ import pandas as pd
 from ast import literal_eval
 import numpy as np
 import argparse, logging
-#from collections import defaultdict
+
 
 import torch
-#from torch_struct import SentCFG
+
 
 from vpcfg.as_dataloader import get_data_iters, set_constant
 from vpcfg.utils import Vocabulary, save_checkpoint
-#from vpcfg.as_evaluation import AverageMeter, LogCollector, semantic_bootstrapping_test, syntactic_bootstrapping_test
+
 from vpcfg.as_vocab import get_vocab
 
 
 parser = argparse.ArgumentParser()
-#parser.add_argument('--tree_file', default='../../../runs/out-dist/syn-first-model/91/sem/29.csv', type=str, help='')
-#parser.add_argument('--tree_f1_file', default='../../../runs/out-dist/f1_gold-parse.csv', type=str, help='')
+parser.add_argument('--tree_file', default='../../runs/in-dist/gold-model/91/sem/29.csv', type=str, help='')
+parser.add_argument('--tree_f1_file', default='../../runs/f1-res/in-dist/f1_gold-parse_00.csv', type=str, help='')
 
 parser.add_argument('--data_path', default='../preprocessed-data/abstractscenes', help='path to datasets')
 parser.add_argument('--logger_name', default='../../../scratch/vcpcfg/parses', help='location for model outputs and logfiles to be saved')
@@ -48,6 +48,7 @@ def main_left_right_tree_branches(opt):
     with open(opt.tree_file, "r") as f:
         reader = csv.reader(f, quotechar='"')
         for i, line in enumerate(reader):
+            id = literal_eval(line[0])
             pred_span = literal_eval(line[2])
             #pred_span = literal_eval(line[1])
             gold_span = literal_eval(line[1])
@@ -64,13 +65,13 @@ def main_left_right_tree_branches(opt):
             left_set = set(left_spans[:-1])
             right_f1 = get_f1(pred_set, right_set)
             left_f1 = get_f1(pred_set, left_set)
-            right_left_spans.append([pred_span, right_spans, left_spans, gold_span, right_f1, left_f1, gold_f1])
+            right_left_spans.append([id, pred_span, right_spans, left_spans, gold_span, right_f1, left_f1, gold_f1])
     with open(opt.tree_f1_file, "w") as f:
         writer = csv.writer(f)
-        writer.writerow(['pred_spans', 'right_spans', ' left_spans', 'gold_spans', 'right_f1', 'left_f1', 'gold_f1'])
+        writer.writerow(['id', 'pred_spans', 'right_spans', ' left_spans', 'gold_spans', 'right_f1', 'left_f1', 'gold_f1'])
         for row in right_left_spans:
             writer.writerow(row)
-            
+
 ##################################
 def main_get_trees_with_cat(opt):
     #initialize logger
@@ -99,15 +100,15 @@ def main_get_trees_with_cat(opt):
     model_opt.vocab_size = len(vocab)
     # construct the model
     if not model_opt.visual_mode:
-        from vpcfg.model import VGCPCFGs 
+        from vpcfg.model import VGCPCFGs
     else:
-        from vpcfg.model_vis import VGCPCFGs 
+        from vpcfg.model_vis import VGCPCFGs
         model = VGCPCFGs(model_opt, vocab, logger)
     parser_params = checkpoint['model']
     model.set_state_dict(parser_params)
     model.eval()
     #model.to('cuda')
-    
+
     # Load data loaders
     set_constant(model_opt.visual_mode, model_opt.max_length)
     _, _, sem_test_loader = get_data_iters(opt.data_path, model_opt.prefix, vocab, model_opt.batch_size, model_opt.workers, load_img=model_opt.visual_mode, encoder_file=model_opt.encoder_file, img_dim=model_opt.img_dim, shuffle=model_opt.shuffle, sampler=None, tiny=opt.tiny, one_shot=model_opt.one_shot)
@@ -121,7 +122,7 @@ def main_get_trees_with_cat(opt):
                 lengths = torch.tensor(lengths).long()
             lengths = lengths.cuda()
             captions = captions.cuda()
-        bsize = captions.size(0) 
+        bsize = captions.size(0)
         nll, kl, span_margs, argmax_spans, trees, lprobs = model.forward_parser(captions, lengths)
         for b in range(bsize):
             cats = [(a[0], a[2]) for a in argmax_spans[b] if a[0] == a[1]]
@@ -133,7 +134,7 @@ def main_get_trees_with_cat(opt):
     outfile = logger_dir / opt.out_file
     with open(outfile, 'w') as fw:
         json.dump(pred_cats, fw)
-    
+
 def main_create_contingency_tables(opt):
     #get gold categories
     gold_file = Path(opt.data_path) / "all_gold_caps.json"
@@ -173,6 +174,6 @@ def main_create_contingency_tables(opt):
     contingency_table.to_csv(str(ct_path))
 
 if __name__ == '__main__':
-    #main_left_right_tree_branches(opt)
+    main_left_right_tree_branches(opt)
     main_get_trees_with_cat(opt)
     main_create_contingency_tables(opt)
