@@ -2,9 +2,8 @@ import os
 import time, pickle, argparse, logging
 import numpy as np
 import torch
-from transformers import get_scheduler, AutoTokenizer, AutoModelForCausalLM, AutoConfig, OPTConfig
+#from transformers import get_scheduler, AutoTokenizer, AutoModelForCausalLM, AutoConfig, OPTConfig
 
-#from vpcfg import data
 import vpcfg.as_dataloader as data
 from vpcfg.utils import Vocabulary, save_checkpoint
 from vpcfg.as_evaluation import AverageMeter, LogCollector, semantic_bootstrapping_test, syntactic_bootstrapping_test

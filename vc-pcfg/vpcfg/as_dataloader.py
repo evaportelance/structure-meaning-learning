@@ -83,7 +83,7 @@ class SortedSequentialSampler(data.Sampler):
 
 class AsDataset(data.Dataset):
     def __init__(self, data_path, data_split, vocab,
-                 load_img=True, encoder_file='all_as-resn-50.npy', img_dim=2048, batch_size=1, tiny=False, one_shot=False):
+                 load_img=True, encoder_file='all_as-resn-50.npy', img_dim=2048, batch_size=1, tiny=False, one_shot=False, sem_data=False):
         self.batch_size = batch_size
         self.vocab = vocab
         self.ids_captions_spans = list()
@@ -104,22 +104,25 @@ class AsDataset(data.Dataset):
                 if TXT_MAX_LENGTH < 1000 and (len(caption) < 2 or len(caption) > max_length):
                     removed.append((idx, len(caption)))
                     continue
-                if str(idx) in test_ids:
-                    if one_shot:
-                        v_type = test_ids[str(idx)]['v_type']
-                        self.test_ids_contrastive[v_type].append((int(img_id), caption, span, idx))
-                    else:
-                        if idx in test_ids_indist:
+                if not sem_data:
+                    if str(idx) in test_ids:
+                        if one_shot:
                             v_type = test_ids[str(idx)]['v_type']
                             self.test_ids_contrastive[v_type].append((int(img_id), caption, span, idx))
                         else:
-                            self.ids_captions_spans.append((int(img_id), caption, span))  
+                            if idx in test_ids_indist:
+                                v_type = test_ids[str(idx)]['v_type']
+                                self.test_ids_contrastive[v_type].append((int(img_id), caption, span, idx))
+                            else:
+                                self.ids_captions_spans.append((int(img_id), caption, span, idx))  
+                    else:
+                        self.ids_captions_spans.append((int(img_id), caption, span, idx))
                 else:
-                    self.ids_captions_spans.append((int(img_id), caption, span))                    
+                    self.ids_captions_spans.append((int(img_id), caption, span, idx))
         self.length = len(self.ids_captions_spans)
         self.im_div = TXT_IMG_DIVISOR
-        print("removed idx: ")
-        print(removed)
+        #print("removed idx: ")
+        #print(removed)
         if load_img:
             self.images = np.load(os.path.join(data_path, encoder_file))
         else:
@@ -131,12 +134,12 @@ class AsDataset(data.Dataset):
         self.ids_captions_spans = [self.ids_captions_spans[k] for k in indice]
 
     def __getitem__(self, index):
-        img_id, cap, span = self.ids_captions_spans[index]
+        img_id, cap, span, idx = self.ids_captions_spans[index]
         image = torch.tensor(self.images[img_id])
         caption = [self.vocab(token) for token in cap]
         caption = torch.tensor(caption)
         span = torch.tensor(span)
-        return image, caption, index, img_id, span
+        return image, caption, idx, img_id, span
 
     def __len__(self):
         return self.length
@@ -228,7 +231,7 @@ def get_data_iters(data_path, data_split, vocab,
                     tiny = False,
                     one_shot=True):
     dset = AsDataset(data_path, data_split, vocab, load_img, encoder_file, img_dim, batch_size, tiny, one_shot=one_shot)
-    dset_all = AsDataset(data_path, data_split, vocab, load_img, encoder_file, img_dim, batch_size, tiny, one_shot=False)
+    dset_all = AsDataset(data_path, data_split, vocab, load_img, encoder_file, img_dim, batch_size, tiny, one_shot=False, sem_data=True)
     if sampler:
         model = SortedRandomSampler
         if not isinstance(sampler, bool) and issubclass(sampler, data.Sampler):
@@ -257,4 +260,3 @@ def get_data_iters(data_path, data_split, vocab,
                     pin_memory=True,
                     collate_fn=collate_fun)
     return train_data_loader, syn_test_data_loader, sem_test_data_loader
-
