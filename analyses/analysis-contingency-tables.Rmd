@@ -1,0 +1,174 @@
+---
+title: "Analysis"
+author: "Eva Portelance"
+date: "03/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(glue)
+#library(ggpubr)
+library(stringr)
+library(RColorBrewer)
+library(ca)
+
+theme_set(theme_bw(base_size = 16,
+  base_family = "Times New Roman"))
+```
+
+
+# Data wrangling
+```{r}
+# Tag maps to syntactic categories
+verbs = c("VB", "VBD", "VBG", "VBN", "VBP", "VBZ")
+adjectives = c("JJ")
+nouns = c("NN", "NNS")
+proper_nouns = c("NNP", "NNPS")
+function_words = c("IN")
+determiners = c("DT")
+conjunctions = c("CC")
+modals = c("MD")
+pronouns = c("PRP", "PRP$")
+adverbs = c("RB", "RBR", "RP", "RBS")
+
+get_syn_cats <- function(df){
+  df <- df |> mutate(syn_cat = ifelse(gold_cat %in% verbs, "verb", 
+                                      ifelse(gold_cat %in% nouns, "noun", 
+                                             ifelse(gold_cat %in% adjectives, "adjective",
+                                                    ifelse(gold_cat %in% proper_nouns, "proper noun",
+                                                           ifelse(gold_cat %in% modals, "modal",
+                                                                  ifelse(gold_cat %in% pronouns, "pronoun",
+                                                                         ifelse(gold_cat %in% function_words, "function word",
+                                                                                ifelse(gold_cat %in% conjunctions, "conjunction",
+                                                                                       ifelse(gold_cat %in% determiners, "determiner",
+                                                                                ifelse(gold_cat %in% adverbs, "adverb", NA))))))))))) |>
+    filter(!is.na(syn_cat))
+  return(df)
+}
+
+```
+
+
+Get Chi-square results 
+```{r}
+get_chi_square_results <- function(filename){
+  model = str_split_i(filename, "_", -4)
+  model = str_split_i(model, "/", -1)
+  seed = str_split_i(filename, "_", -3)
+  ct <- read_csv(filename, col_names = TRUE)
+  cs <- chisq.test(ct[1:60,2:36])
+  x = cs$statistic
+  degf = cs$parameter
+  p = cs$p.value
+  res <- tibble(model, seed, x, degf, p)
+  return(res)
+}
+#result_main_dir = "./runs/parses/in-dist-29/ct_cats"
+result_main_dir = "./runs/parses/in-dist-14/ct_cats"
+result_files <- list.files(result_main_dir, recursive = FALSE, full.names = TRUE)
+
+x_results <- result_files |> map(get_chi_square_results) |> reduce(rbind)
+
+x_sum <- x_results |> group_by(model) |>
+  summarise(mean_x = mean(x), sd_x = sd(x))
+
+#filename = "./runs/parses/in-dist/ct_cats/joint_1018_parses.json_ct.csv"
+#ct<- read_csv(filename, col_names = TRUE)
+#chisq.test(ct[1:60,2:36])
+```
+
+```{r}
+
+#filenames = c("./runs/parses/in-dist/df_cats/joint_1018_parses.json_df.csv", "./runs/parses/in-dist/df_cats/syn-first_1018_parses.json_df.csv", "./runs/parses/in-dist/df_cats/sem-first_1018_parses.json_df.csv", "./runs/parses/in-dist/df_cats/joint_gold_1018_parses.json_df.csv")
+
+#filename = "./runs/parses/in-dist/df_cats/sem-first_1018_parses.json_df.csv"
+#df<- read_csv(filename, col_names = TRUE)
+#df <- get_syn_cats(df)
+#ct = table(df |> select(pred_cat, syn_cat))
+
+#pca = prcomp(ct, scale. = TRUE)
+#library(ggfortify)
+#autoplot(pca, data = ct, loadings.label = TRUE, loadings.label.size  = 3)
+
+filename = "./runs/test_verb_ids.csv"
+result_dirs <- list.dirs(result_main_dir,recursive = FALSE)
+test_ids <- read_csv(filename)
+
+indist_filename = "./runs/text_verb_ids_indist.csv"
+in_dist_test_ids <- read_csv(indist_filename, col_names=FALSE)
+test_ids <- test_ids |> filter(id %in% in_dist_test_ids$X1)
+  
+get_proportion_data <- function(filename){
+  model = str_split_i(filename, "_", -4)
+  model = str_split_i(model, "/", -1)
+  seed = str_split_i(filename, "_", -3)
+  df<- read_csv(filename, col_names = TRUE)
+  ####### TOGGLE ###############
+  #df <- df |> filter(sent_id %in% test_ids$id)
+  ##############################
+  df <- get_syn_cats(df)
+  ct = table(df |> select(syn_cat, pred_cat))
+  counts = df |> group_by(syn_cat) |>
+    summarise(n = n())
+
+  ctn <- ct |> as.data.frame() |>
+    group_by(syn_cat) |> left_join(counts) |>
+    mutate(Proportion = Freq/n) |>
+    mutate(model=model, seed=as.integer(seed)) |>
+    mutate(model = 
+case_match(model, "joint"~"Joint-learning", "sem-first"~"Semantics-first", "syn-first"~"Syntax-first", "gold"~ "Gold"))
+  return(ctn)
+}
+
+#result_main_dir = "./runs/parses/in-dist-29/df_cats"
+result_main_dir = "./runs/parses/in-dist-14/df_cats"
+result_files <- list.files(result_main_dir, recursive = FALSE, full.names = TRUE)
+
+prop_results <- result_files |> map(get_proportion_data) |> reduce(rbind)
+
+get_prop_plot <- function(rseed){
+  data <- prop_results |>
+    filter(seed == rseed) |>
+    mutate(syn_cat = factor(syn_cat))
+  
+  p <- ggplot(data, aes(syn_cat, pred_cat, fill= Proportion))+
+    geom_tile() +
+    facet_grid(cols = vars(model)) +
+    scale_fill_gradient(low = "white", high = "navy", limits=c(0.0, 1.0)) +
+    scale_y_discrete(name ="Predicted category", limits=c("C0","C1","C2","C3","C4","C5","C6","C7","C8","C9","C10","C11","C12","C13","C14","C15","C16","C17","C18","C19","C20","C21","C22","C23","C24","C25","C26","C27","C28","C29", "C30","C31","C32","C33","C34","C35","C36","C37","C38","C39", "C40","C41","C42","C43","C44","C45","C46","C47","C48","C49","C50","C51","C52","C53","C54","C55","C56","C57","C58","C59"), breaks=c("C0","C9","C19","C29","C39","C49","C59"))+
+    scale_x_discrete(name ="Syntactic category", guide = guide_axis(angle = 90))+
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.y=element_text(size=12), axis.text.x=element_text(size=14), legend.text=element_text(size=14), strip.text.x = element_text(
+          size = 16))
+ # p <- ggplot(data, aes(pred_cat, syn_cat, fill= Proportion))+
+#  geom_tile() +
+#  facet_grid(rows = vars(model)) +
+#  scale_fill_gradient(low = "white", high = "navy", limits=c(0.0, 1.0)) +
+#  scale_x_discrete(name ="Predicted category", limits=c("C0","C1","C2","C3","C4","C5","C6","C7","C8","C9","C10","C11","C12","C13","C14","C15","C16","C17","C18","C19","C20","C21","C22","C23","C24","C25","C26","C27","C28","C29", "C30","C31","C32","C33","C34","C35","C36","C37","C38","C39", "C40","C41","C42","C43","C44","C45","C46","C47","C48","C49","C50","C51","C52","C53","C54","C55","C56","C57","C58","C59"), breaks=c("C0","C9","C19","C29","C39","C49","C59"))+
+#  scale_y_discrete(name ="Syntactic category")+
+#  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text.x=element_text(size=12), axis.text.y=element_text(size=14), legend.text=element_text(size=14), strip.text.y = element_text(
+ #       size = 16))
+  return(p)
+}
+
+
+p = get_prop_plot(1018)
+#ggsave("1018_cat_prop.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+ggsave("1018_cat_prop14.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+p = get_prop_plot(91)
+#ggsave("91_cat_prop.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+ggsave("91_cat_prop14.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+p = get_prop_plot(214)
+#ggsave("214_cat_prop.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+ggsave("214_cat_prop14.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+p = get_prop_plot(527)
+#ggsave("527_cat_prop.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+ggsave("527_cat_prop14.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+p = get_prop_plot(627)
+#ggsave("627_cat_prop.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+ggsave("627_cat_prop14.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+```
+

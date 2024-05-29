@@ -1,0 +1,619 @@
+---
+title: "Analysis"
+author: "Eva Portelance"
+date: "03/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(glue)
+#library(ggpubr)
+library(stringr)
+library(RColorBrewer)
+
+theme_set(theme_bw(base_size = 16,
+  base_family = "Times New Roman"))
+```
+
+## Data rangling
+```{r, echo=FALSE}
+#result_main_dir = "./runs/in-dist"
+result_main_dir = "./runs/out-dist"
+filename = "./runs/test_verb_ids.csv"
+result_dirs <- list.dirs(result_main_dir,recursive = FALSE)
+test_ids <- read_csv(filename)
+
+#indist_filename = "./runs/text_verb_ids_indist.csv"
+#in_dist_test_ids <- read_csv(indist_filename, col_names=FALSE)
+#test_ids <- test_ids |> filter(id %in% in_dist_test_ids$X1)
+```
+
+```{r, include=FALSE}
+get_syn_results <- function(filename){
+  epoch = str_split_i(filename, "/", -1)
+  epoch = as.integer(str_sub(epoch, 1, -5))
+  res <- read_csv(filename, col_names = FALSE)
+  colnames(res) <- c("id_transitive", "id_intransitive", "cap_score_tr", "cap_score_intr", "tree_score_tr", "tree_score_intr", "span_score_tr", "span_score_intr", "short_tree_score_tr", "short_tree_score_intr", "short_span_score_tr", "short_span_score_intr")
+  res <- res |> mutate(epoch = epoch)
+  return(res)
+}
+
+get_sem_results <- function(filename){
+  epoch = str_split_i(filename, "/", -1)
+  epoch = as.integer(str_sub(epoch, 1, -5))
+  res <- read_csv(filename)
+  colnames(res) <- c("id", "gold_spans", "pred_spans", "sent_f1")
+  res <- res |> mutate(epoch = epoch)
+  return(res)
+}
+
+get_seed_results <- function(dirname){
+  seed = str_split_i(dirname, "/", -1)
+  sem_files = list.files(paste(dirname, "sem/", sep="/"),recursive = FALSE, full.names = TRUE)
+  syn_files = list.files(paste(dirname, "syn/", sep="/"),recursive = FALSE, full.names = TRUE)
+  sem_results <- sem_files |> map(get_sem_results) |> reduce(rbind)
+  sem_results <- sem_results |> mutate(seed= seed)
+  syn_results <- syn_files |> map(get_syn_results) |> reduce(rbind)
+  syn_results <- syn_results |> mutate(seed= seed)
+  res <- tibble_row(sem = list(sem_results), syn = list(syn_results))
+  return(res)
+}
+
+get_model_results <- function(dirname){
+  model = str_split_i(dirname, "/", -1)
+  seed_dirs = list.dirs(dirname, recursive = FALSE)
+  model_results <- seed_dirs |> map(get_seed_results) |> reduce(rbind)
+  sem_boot_test <- model_results$sem |> reduce(rbind)
+  sem_boot_test <- sem_boot_test |> mutate(model = model)
+  syn_boot_test <- model_results$syn |> reduce(rbind)
+  syn_boot_test <- syn_boot_test |> mutate(model = model)
+  res <- tibble_row(sem = list(sem_boot_test), syn = list(syn_boot_test))
+  return(res)
+}
+
+model_results <- result_dirs |> map(get_model_results) |> reduce(rbind)
+sem_boot_test <- model_results$sem |> reduce(rbind)
+syn_boot_test <- model_results$syn |> reduce(rbind)
+```
+
+# Learning curves
+
+## Semantic Bootstrapping results
+
+```{r}
+plot_data <- sem_boot_test |>
+  group_by(model, epoch, seed) |>
+  summarise(seed_f1 = mean(sent_f1)) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_f1 = mean(seed_f1), sd_f1 = sd(seed_f1)) |>
+  mutate(epoch = epoch + 1) |>
+  mutate(model = 
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Gold")) |>
+  mutate(model = as.factor(model)) 
+
+
+p <- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_f1))+
+  geom_line(aes(x=15), alpha=0.6, linetype = "dotted") +
+  geom_ribbon(aes(ymin = (mean_f1 - sd_f1), ymax = (mean_f1 + sd_f1), fill = model), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_f1, color=model), size=1.3) +
+  #scale_color_manual(levels=c("Joint-learning", "Syntax-first", "Semantics-first", "Gold"))+
+  #scale_fill_manual(levels=c("Joint-learning", "Syntax-first", "Semantics-first", "Gold"))+
+#  scale_y_continuous(limits=c(0.0, 1.0))+
+  labs(x= "Epoch", y="Mean F1", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+ggsave("sem_boot_all_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+```
+
+### In and out of sample analysis
+```{r}
+#in_dist <- sem_boot_test |> filter(!id %in% test_ids$id)
+out_dist <- sem_boot_test |> filter(id %in% test_ids$id)
+
+plot_data <- out_dist |>
+  group_by(model, epoch, seed) |>
+  summarise(seed_f1 = mean(sent_f1)) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_f1 = mean(seed_f1), sd_f1 = sd(seed_f1)) |>
+    mutate(epoch = epoch + 1) |>
+  mutate(model = 
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Gold")) |>
+  mutate(model = as.factor(model)) 
+
+p <- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_f1))+
+  geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
+  geom_ribbon(aes(ymin = (mean_f1 - sd_f1), ymax = (mean_f1 + sd_f1), fill = model), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_f1, color=model), size=1.3) +
+#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_y_continuous(limits=c(0.0, 1.0))+
+  labs(x= "Epoch", y="Mean F1", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+#ggsave("sem_boot_outdist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+ggsave("sem_boot_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+
+#plot_data <- in_dist |>
+#  group_by(model, epoch, seed) |>
+#  summarise(seed_f1 = mean(sent_f1)) |>
+#  ungroup() |> group_by(model, epoch) |>
+#  summarise(mean_f1 = mean(seed_f1), sd_f1 = sd(seed_f1)) |>
+#  mutate(epoch = epoch + 1)
+
+#ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_f1))+
+#  geom_line(aes(x=15), alpha=0.6, linetype = "dotted") +
+#  geom_ribbon(aes(ymin = (mean_f1 - sd_f1), ymax = (mean_f1 + sd_f1), fill = model), alpha=0.3)+
+#  geom_line(aes(x=epoch, y=mean_f1, color=model), size=1.3) +
+##  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+##  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+##  scale_y_continuous(limits=c(0.0, 1.0))+
+#  labs(x= "Epoch", y="In dist mean span F1", color = "Model", fill = "Model") +
+#  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+```
+
+
+
+
+## Syntactic Bootstrapping results
+
+### Test verbs
+```{r}
+transitive_test_ids <- test_ids |> filter(verb_type == "transitive")|>
+  mutate(stem_tr = stem, id_transitive = id) |> select(id_transitive, stem_tr, object_type)
+intransitive_test_ids <- test_ids |> filter(verb_type == "intransitive") |>
+  mutate( stem_intr = stem, id_intransitive = id) |> select(id_intransitive, stem_intr)
+
+syn_boot_test <- syn_boot_test |> left_join(transitive_test_ids) |> left_join(intransitive_test_ids)
+```
+
+### Transitives
+```{r}
+plot_data <- syn_boot_test |>
+  group_by(model, epoch, seed) |>
+  mutate(total_n = n())
+
+sem_first_early <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch < 15) |>
+  group_by(model, epoch, seed) |>
+  filter(cap_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1)
+
+sem_first_data <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch >= 15) |>
+  group_by(model, epoch, seed) |>
+  filter(tree_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_early)
+
+plot_data_tr <- plot_data |>
+  ungroup() |>
+  filter(model!="sem-first-model") |>
+  group_by(model, epoch, seed) |>
+  filter(tree_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_data) |>
+  mutate(model = 
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Gold")) |>
+  mutate(model = as.factor(model)) |>
+  mutate(v_type = "Transitive")
+
+p<- ggplot(plot_data_tr |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
+  geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
+  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
+#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_y_continuous(limits=c(0.0, 1.0))+
+  labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+#ggsave("syn_boot_tr_outdist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+#ggsave("syn_boot_tr_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+```
+
+### Intransitives
+```{r}
+plot_data <- syn_boot_test |>
+  group_by(model, epoch, seed) |>
+  mutate(total_n = n())
+
+sem_first_early <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch < 15) |>
+  group_by(model, epoch, seed) |>
+  filter(cap_score_intr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1)
+
+sem_first_data <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch >= 15) |>
+  group_by(model, epoch, seed) |>
+  filter(tree_score_intr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_early)
+
+plot_data_intr <- plot_data |>
+  ungroup() |>
+  filter(model!="sem-first-model") |>
+  group_by(model, epoch, seed) |>
+  filter(tree_score_intr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_data) |>
+  mutate(model = 
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Gold")) |>
+  mutate(model = as.factor(model)) |>
+  mutate(v_type = "Intransitive")
+
+p<- ggplot(plot_data_intr |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
+  geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
+  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
+#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_y_continuous(limits=c(0.0, 1.0))+
+  labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+#ggsave("syn_boot_intr_outdist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+#ggsave("syn_boot_intr_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+```
+
+### Total score
+
+```{r}
+plot_data <- plot_data_intr |>
+  rbind(plot_data_tr)
+
+p<- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
+  geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
+  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
+  facet_wrap(vars(v_type)) +
+  labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+#ggsave("syn_boot_vtype_indist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
+ggsave("syn_boot_vtype_outdist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
+
+
+plot_data <- plot_data_intr |>
+  mutate(mean_score_intr = mean_score, sd_score_intr = sd_score) |>
+  select(-c(mean_score, sd_score, v_type)) |>
+  left_join(plot_data_tr) |>
+  mutate(mean_score = (mean_score+mean_score_intr)/2, sd_score = (sd_score_intr+sd_score)/2)
+
+
+p<- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
+  geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
+  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
+  labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+#ggsave("syn_boot_all_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+#ggsave("syn_boot_all_outdist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+
+```
+
+
+### By object type for transitives
+
+```{r}
+plot_data <- syn_boot_test |>
+  group_by(model, epoch, seed,object_type) |>
+  mutate(total_n = n())
+
+sem_first_early <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch < 15) |>
+  group_by(model, epoch, seed, object_type) |>
+  filter(cap_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, object_type, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, object_type) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1)
+
+sem_first_data <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch >= 15) |>
+  group_by(model, epoch, seed, , object_type) |>
+  filter(tree_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true, object_type) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, object_type) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_early)
+
+plot_data <- plot_data |>
+  ungroup() |>
+  filter(model!="sem-first-model") |>
+  group_by(model, epoch, seed, object_type) |>
+  filter(tree_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true, object_type) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, object_type) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_data)
+
+p <- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
+  geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
+  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
+  facet_wrap(vars(object_type)) +
+  labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+#ggsave("syn_boot_tr_obj_indist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
+ggsave("syn_boot_tr_obj_outdist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
+```
+
+### By verb stem - Transitives
+```{r}
+plot_data <- syn_boot_test |>
+  group_by(model, epoch, seed, stem_tr) |>
+  mutate(total_n = n())
+
+sem_first_early <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch < 15) |>
+  group_by(model, epoch, seed, stem_tr) |>
+  filter(cap_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, stem_tr, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, stem_tr) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1)
+
+sem_first_data <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch >= 15) |>
+  group_by(model, epoch, seed, stem_tr) |>
+  filter(tree_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true, stem_tr) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, stem_tr) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_early)
+
+plot_data_tr <- plot_data |>
+  ungroup() |>
+  filter(model!="sem-first-model") |>
+  group_by(model, epoch, seed, stem_tr) |>
+  filter(tree_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true, stem_tr) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, stem_tr) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_data)
+
+p<- ggplot(plot_data_tr |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
+  geom_line(aes(x=15), alpha=0.6, linetype = "dotted") +
+  #geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = stem_tr), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
+  facet_wrap(vars(stem_tr)) +
+#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_y_continuous(limits=c(0.0, 1.0))+
+  labs(x= "Epoch", y="Matching score Transitive verbs", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+ggsave("syn_boot_tr_stems.jpeg", plot=p, device="jpeg", width = 9, height = 7, units="in")
+```
+
+### By verb stem - Intransitives
+```{r}
+plot_data <- syn_boot_test |>
+  group_by(model, epoch, seed, stem_intr) |>
+  mutate(total_n = n())
+
+sem_first_early <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch < 15) |>
+  group_by(model, epoch, seed, stem_intr) |>
+  filter(cap_score_intr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, stem_intr, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, stem_intr) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1)
+
+sem_first_data <- plot_data |>
+  ungroup() |>
+  filter(model=="sem-first-model") |>
+  filter(epoch >= 15) |>
+  group_by(model, epoch, seed, stem_intr) |>
+  filter(tree_score_intr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true, stem_intr) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, stem_intr) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_early)
+
+plot_data_intr <- plot_data |>
+  ungroup() |>
+  filter(model!="sem-first-model") |>
+  group_by(model, epoch, seed, stem_intr) |>
+  filter(tree_score_intr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true, stem_intr) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  ungroup() |> group_by(model, epoch, stem_intr) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  mutate(epoch = epoch + 1) |>
+  rbind(sem_first_data)
+
+p<- ggplot(plot_data_intr |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
+  geom_line(aes(x=15), alpha=0.6, linetype = "dotted") +
+  #geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = stem_tr), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
+  facet_wrap(vars(stem_intr)) +
+#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_y_continuous(limits=c(0.0, 1.0))+
+  labs(x= "Epoch", y="Matching score Intransitive verbs", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+ggsave("syn_boot_intr_stems.jpeg", plot=p, device="jpeg", width = 9, height = 7, units="in")
+```
+
+
+## F1 span comparisons
+```{r}
+result_main_dir = "./runs/f1-res/in-dist"
+result_files <- list.files(result_main_dir, recursive = FALSE, full.names = TRUE)
+
+filename = "./runs/test_verb_ids.csv"
+result_dirs <- list.dirs(result_main_dir,recursive = FALSE)
+test_ids <- read_csv(filename)
+
+indist_filename = "./runs/text_verb_ids_indist.csv"
+in_dist_test_ids <- read_csv(indist_filename, col_names=FALSE)
+test_ids <- test_ids |> filter(id %in% in_dist_test_ids$X1)
+
+get_f1_results <- function(filename){
+  model = str_split_i(filename, "_", -2)
+  seed = str_split_i(filename, "_", -1)
+  res <- read_csv(filename, col_names = TRUE)
+  res <- res |> mutate(model = model,
+                       id = row_number(),
+                       seed = seed)
+  return(res)
+}
+
+f1_results <- result_files |> map(get_f1_results) |> reduce(rbind)
+
+f1_test_results <- f1_results |> filter(id %in% test_ids$id)
+```
+
+```{r}
+
+f1_summary_all <- f1_results |> select(model, seed, right_f1, left_f1, gold_f1) |>
+  group_by(model) |>
+  summarise(mean_right_f1 = mean(right_f1),
+    sd_right_f1 = sd(right_f1),
+    mean_left_f1 = mean(left_f1),
+    sd_left_f1 = sd(left_f1),
+    mean_gold_f1 = mean(gold_f1),
+    sd_gold_f1 = sd(gold_f1))
+
+
+f1_test_summary_all <- f1_test_results |> select(model, seed, right_f1, left_f1, gold_f1) |>
+  group_by(model) |>
+  summarise(mean_right_f1 = mean(right_f1),
+    sd_right_f1 = sd(right_f1),
+    mean_left_f1 = mean(left_f1),
+    sd_left_f1 = sd(left_f1),
+    mean_gold_f1 = mean(gold_f1),
+    sd_gold_f1 = sd(gold_f1))
+
+```
+
+
+## Pick tree examples and matching examples
+```{r}
+test <- f1_test_results |> select(model, seed, right_f1, left_f1, gold_f1) |>
+  group_by(model, seed) |>
+  summarise(mean_right_f1 = mean(right_f1),
+    sd_right_f1 = sd(right_f1),
+    mean_left_f1 = mean(left_f1),
+    sd_left_f1 = sd(left_f1),
+    mean_gold_f1 = mean(gold_f1),
+    sd_gold_f1 = sd(gold_f1))
+```
+
+```{r}
+ids_correct <- syn_boot_test |> filter(epoch==29) |>
+  filter(model=="joint-model") |>
+  filter(tree_score_tr == TRUE) |>
+  filter(tree_score_intr == TRUE) |>
+  filter(seed == 1018) |>
+  select(id_transitive, id_intransitive) |>
+  mutate(id = id_transitive) |>
+  left_join(test_ids)
+
+test <- syn_boot_test |> filter(epoch==29) |>
+  filter(model=="sem-first-model") |>
+  filter(tree_score_tr == FALSE) |>
+  filter(tree_score_intr == FALSE) |>
+  filter(seed == 1018) |>
+  select(id_transitive, id_intransitive)
+
+intersect(ids_correct$id_transitive, test$id_transitive)
+
+
+```

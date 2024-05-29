@@ -1,0 +1,81 @@
+---
+title: "Analysis"
+author: "Eva Portelance"
+date: "03/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(glue)
+#library(ggpubr)
+library(stringr)
+library(RColorBrewer)
+library(ca)
+
+theme_set(theme_bw(base_size = 16,
+  base_family = "Times New Roman"))
+```
+
+
+# Data wrangling
+
+Get Chi-square results 
+```{r}
+  
+get_score_data <- function(filename){
+  model = str_split_i(filename, "_", -5)
+  model = str_split_i(model, "/", -1)
+  seed = str_split_i(filename, "_", -4)
+  epoch = str_split_i(filename, "_", -2)
+  df<- read_csv(filename, col_names = FALSE)
+  colnames(df) <- c("id", "cap_score", "tree_score")
+  df <- df |>
+    mutate(model=model, seed=as.integer(seed), epoch=as.integer(epoch)) |>
+    mutate(model = 
+case_match(model, "joint"~"Joint-learning", "sem-first"~"Semantics-first", "syn-first"~"Syntax-first", "gold"~ "Gold"))
+  return(df)
+}
+
+#result_main_dir = "./runs/sem-roles-res"
+result_main_dir = "./runs/sem-roles-filtered-res"
+result_files <- list.files(result_main_dir, recursive = FALSE, full.names = TRUE)
+
+role_results <- result_files |> map(get_score_data) |> reduce(rbind)
+
+test <- role_results |> filter(id == 0) |> filter(epoch == 29)
+```
+
+```{r}
+
+role_sum_results <- role_results |>
+  group_by(model, seed, epoch) |>
+  summarise(n= n(), sum_cap = sum(cap_score), sum_tree = sum(tree_score)) |>
+  mutate(tree_score = sum_tree/n, cap_score = sum_cap/n) |>
+  ungroup() |> group_by(model, epoch) |>
+  summarise(mean_tree = mean(tree_score), sd_tree = sd(tree_score), mean_cap=mean(cap_score), sd_cap=sd(cap_score)) |>
+  mutate(mean_score = ifelse(model != "Semantics-first", mean_tree,
+                             ifelse(epoch >= 15, mean_tree, mean_cap))) |>
+  mutate(sd_score = ifelse(model != "Semantics-first", sd_tree,
+                             ifelse(epoch >= 15, sd_tree, sd_cap))) 
+
+
+p<- ggplot(role_sum_results, aes(x=epoch, y=mean_score))+
+  geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
+  geom_hline(yintercept = 0.5, alpha=0.7) +
+  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
+#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
+#  scale_y_continuous(limits=c(0.0, 1.0))+
+  labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
+  theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
+
+#ggsave("sem_roles_all_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+ggsave("sem_roles_filtered_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+
+```
+
