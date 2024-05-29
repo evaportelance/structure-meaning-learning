@@ -10,8 +10,8 @@ import argparse, logging
 import torch
 
 
-from vpcfg.as_dataloader import get_data_iters, set_constant
-from vpcfg.utils import Vocabulary, save_checkpoint
+from vpcfg.as_dataloader import get_data_iters, set_constant, get_semantic_roles_data
+from vpcfg.utils import cosine_sim, save_columns_to_csv, l2norm
 
 from vpcfg.as_vocab import get_vocab
 
@@ -21,7 +21,7 @@ parser.add_argument('--tree_file', default='../../runs/in-dist/gold-model/91/sem
 parser.add_argument('--tree_f1_file', default='../../runs/f1-res/in-dist/f1_gold-parse_00.csv', type=str, help='')
 
 parser.add_argument('--data_path', default='../preprocessed-data/abstractscenes', help='path to datasets')
-parser.add_argument('--logger_name', default='../../../scratch/vcpcfg/parses', help='location for model outputs and logfiles to be saved')
+parser.add_argument('--logger_name', default='../../../scratch/vcpcfg/roles_filtered', help='location for model outputs and logfiles to be saved')
 parser.add_argument('--model_init', default='../../../scratch/vcpcfg/runs/2024-03-27_joint_indist_s1018/checkpoints/29.pth.tar', type=str, help='checkpoint to initialize model with')
 parser.add_argument('--tiny', action='store_true', help='if testing will create tiny dataloaders')
 parser.add_argument('--log_step', default=500, type=int, help='number of steps to print and record the log')
@@ -172,8 +172,118 @@ def main_create_contingency_tables(opt):
     ct_path = log_dir / ct_file
     df_pairs.to_csv(str(df_path), index=False)
     contingency_table.to_csv(str(ct_path))
+    
+##########################################   
+
+def main_get_semantic_role_res(opt):
+    #initialize logger
+    if os.path.exists(opt.logger_name):
+        print(f'Warning: the folder {opt.logger_name} exists.')
+    else:
+        print('Creating {}'.format(opt.logger_name))
+        os.mkdir(opt.logger_name)
+        os.mkdir(opt.logger_name+'/parses')
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler = logging.FileHandler(os.path.join(opt.logger_name, 'train.log'), 'w')
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(formatter)
+    logger.addHandler(console)
+    logger.propagate = False
+    # load checkpoint
+    checkpoint = torch.load(opt.model_init, map_location='cpu')
+    epoch = checkpoint['epoch']
+    model_opt = checkpoint['opt']
+    vocab = get_vocab(opt.data_path)
+    model_opt.vocab_size = len(vocab)
+    # construct the model
+    if not model_opt.visual_mode:
+        from vpcfg.model import VGCPCFGs
+    else:
+        from vpcfg.model_vis import VGCPCFGs
+        model = VGCPCFGs(model_opt, vocab, logger)
+    parser_params = checkpoint['model']
+    model.set_state_dict(parser_params)
+    model.eval()
+    #model.to('cuda')
+
+    # Load data loaders
+    set_constant(model_opt.visual_mode, model_opt.max_length)
+    logger.info('Creating dataloader')
+    syn_test_loader = get_semantic_roles_data(opt.data_path, vocab, encoder_file=model_opt.encoder_file, img_dim=model_opt.img_dim)
+    ids = []
+    cap_score = []
+    tree_score = []
+    logger.info('Starting evaluation')
+    for i, (images_1, captions_1, lengths_1, ids_1, spans_1, images_2, captions_2, lengths_2, ids_2, spans_2) in enumerate(syn_test_loader): 
+        logger.info(str(i))
+        if isinstance(lengths_1, list):
+            lengths_1 = torch.tensor(lengths_1).long()
+            lengths_2 = torch.tensor(lengths_2).long()      
+        bsize = captions_1.size(0)
+        images = torch.cat((images_1, images_2, images_1, images_2), 0)
+        captions = torch.cat((captions_1, captions_1, captions_2, captions_2), 0)
+        lengths = torch.cat((lengths_1, lengths_1, lengths_2, lengths_2), 0)
+        spans = torch.cat((spans_1, spans_1, spans_2, spans_2), 0)
+        if torch.cuda.is_available():
+            lengths = lengths.cuda()
+            captions = captions.cuda()
+            images = images.cuda()
+        model.logger = logger
+        img_emb, cap_span_features, nll, kl, span_margs, argmax_spans, trees, lprobs = \
+            model.forward_encoder(images, captions, lengths, spans, require_grad=False) 
+        mstep = (lengths * (lengths - 1) / 2).int() # (b, NT, dim) 
+        # get caption embeddings
+        # if only using whole string embedding
+        cap_feats = torch.cat([cap_span_features[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0) 
+        span_marg = torch.softmax(torch.cat([span_margs[j][k - 1].unsqueeze(0) for j, k in enumerate(mstep)], dim=0), -1)
+        cap_emb = torch.bmm(span_marg.unsqueeze(-2),  cap_feats).squeeze(-2)
+        #cap_emb = cap_feats.sum(-2)
+        cap_emb = l2norm(cap_emb)
+        # if averaging across constituents
+        tree_emb = []
+        for b, nstep in enumerate(mstep):
+            span_embs = []
+            for k in range(nstep):
+                span_feats = cap_span_features[b, k] 
+                span_marg = span_margs[b, k].softmax(-1).unsqueeze(-2)
+                span_emb = torch.matmul(span_marg, span_feats).squeeze(-2)
+                span_emb = l2norm(span_emb)
+                span_embs.append(span_emb)
+            span_embs = torch.stack(span_embs)
+            span_emb = torch.mean(span_embs, 0)
+            tree_emb.append(span_emb)
+        tree_emb = torch.stack(tree_emb)
+        # compare cosine similarity with images
+        cap_sim = cosine_sim(img_emb, cap_emb).diag()
+        tree_sim =cosine_sim(img_emb, tree_emb).diag()
+        # split results into 4 comparison groups
+        sim_1, _, sim_2, _ = torch.split(cap_sim, bsize)
+        cap_ans = torch.gt(sim_1, sim_2)
+        sim_1, _, sim_2, _ = torch.split(tree_sim, bsize) 
+        tree_ans = torch.gt(sim_1, sim_2)
+        ids += ids_1
+        cap_score += cap_ans.tolist()
+        tree_score += tree_ans.tolist()
+        del images, captions, lengths, spans
+    logger_dir = Path(opt.logger_name)
+    filename = opt.out_file+'_'+str(epoch)+'_roles.csv'
+    file = str(logger_dir / filename)
+    save_columns_to_csv(file, ids, cap_score, tree_score)
+    n = len(ids)
+    cap_score_sum = sum(cap_score) / n
+    tree_score_sum = sum(tree_score) / n
+    info = '\nEpoch {:.0f} Semantic Roles\n Cap score: {:.4f} Tree score: {:.4f}\n'
+    info = info.format(epoch, cap_score_sum, tree_score_sum)
+    logger.info(info)
 
 if __name__ == '__main__':
-    main_left_right_tree_branches(opt)
-    main_get_trees_with_cat(opt)
-    main_create_contingency_tables(opt)
+    #main_left_right_tree_branches(opt)
+    #main_get_trees_with_cat(opt)
+    #main_create_contingency_tables(opt)
+    main_get_semantic_role_res(opt)

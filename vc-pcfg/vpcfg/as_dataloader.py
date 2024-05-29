@@ -1,4 +1,4 @@
-import os, re, json
+import os, re, json, csv
 import numpy as np
 import random
 import torch
@@ -221,7 +221,7 @@ def bi_collate_fun(data):
 
 
 def get_data_iters(data_path, data_split, vocab,
-                    batch_size=128,
+                    batch_size=5,
                     nworker=2,
                     shuffle=True,
                     sampler=True,
@@ -260,3 +260,58 @@ def get_data_iters(data_path, data_split, vocab,
                     pin_memory=True,
                     collate_fn=collate_fun)
     return train_data_loader, syn_test_data_loader, sem_test_data_loader
+
+
+
+################### for semantic role eval #########################
+
+class RoleDataset(data.Dataset):
+    def __init__(self, data_path, vocab, encoder_file='all_as-resn-50.npy', img_dim=2048, batch_size=5, tiny=False):
+        self.batch_size = batch_size
+        self.vocab = vocab
+        self.id_caption1_caption2 = list()
+        idx = -1
+        with open(os.path.join(data_path, 'eval_semantic_roles_filtered.csv'), 'r') as f1:
+            csvreader = csv.reader(f1, delimiter=',')
+            header = next(csvreader)
+            for row in csvreader:
+                if tiny and idx > 100 :
+                    break
+                idx += 1
+                img_id, caption1, caption2 = row
+                caption1 = [clean_number(w) for w in caption1.strip().lower().split()]
+                caption2 = [clean_number(w) for w in caption2.strip().lower().split()]
+                span = [[0, len(caption1)]]
+                self.id_caption1_caption2.append((int(img_id), caption1, caption2, span, idx))
+        self.length = len(self.id_caption1_caption2)
+        self.im_div = TXT_IMG_DIVISOR
+        self.images = np.load(os.path.join(data_path, encoder_file))
+
+    def _shuffle(self):
+        indice = torch.randperm(self.length).tolist()
+        #indice = sorted(indice, key=lambda k: len(self.ids_captions_spans[k]))
+        self.ids_captions_spans = [self.ids_captions_spans[k] for k in indice]
+
+    def __getitem__(self, index):
+        img_id, cap1, cap2, span, idx = self.id_caption1_caption2[index]
+        image = torch.tensor(self.images[img_id])
+        caption1 = [self.vocab(token) for token in cap1]
+        caption1 = torch.tensor(caption1)
+        caption2 = [self.vocab(token) for token in cap2]
+        caption2 = torch.tensor(caption2)
+        span = torch.tensor(span)
+        return image, image, caption1, caption2, idx, idx, img_id, img_id, span, span
+
+    def __len__(self):
+        return self.length
+
+def get_semantic_roles_data(data_path, vocab, batch_size=20, encoder_file = 'all_as-resn-50.npy', img_dim=2048, tiny = False):
+    dset = RoleDataset(data_path, vocab, encoder_file, img_dim, batch_size, tiny)
+    syn_test_data_loader = torch.utils.data.DataLoader(
+                    dataset=dset,
+                    batch_size=batch_size,
+                    shuffle=False,
+                    pin_memory=True,
+                    collate_fn=bi_collate_fun)
+    return syn_test_data_loader
+    
