@@ -21,13 +21,13 @@ theme_set(theme_bw(base_size = 16,
 
 ## Data rangling
 ```{r, echo=FALSE}
-#result_main_dir = "./runs/in-dist"
-result_main_dir = "./runs/out-dist"
-filename = "./runs/test_verb_ids.csv"
+result_main_dir = "../../results/out-dist"
+#result_main_dir = "../../results/in-dist"
+filename = "../preprocessed-data/abstractscenes/test_verb_ids.csv"
 result_dirs <- list.dirs(result_main_dir,recursive = FALSE)
 test_ids <- read_csv(filename)
 
-#indist_filename = "./runs/text_verb_ids_indist.csv"
+#indist_filename = "../preprocessed-data/abstractscenes/test_verb_ids_indist.csv"
 #in_dist_test_ids <- read_csv(indist_filename, col_names=FALSE)
 #test_ids <- test_ids |> filter(id %in% in_dist_test_ids$X1)
 ```
@@ -43,11 +43,12 @@ get_syn_results <- function(filename){
 }
 
 get_sem_results <- function(filename){
-  epoch = str_split_i(filename, "/", -1)
-  epoch = as.integer(str_sub(epoch, 1, -5))
-  res <- read_csv(filename)
-  colnames(res) <- c("id", "gold_spans", "pred_spans", "sent_f1")
-  res <- res |> mutate(epoch = epoch)
+  #epoch = str_split_i(filename, "/", -1)
+  #epoch = as.integer(str_sub(epoch, 1, -5))
+  #res <- read_csv(filename, col_names=FALSE)
+  #colnames(res) <- c("id", "gold_spans", "pred_spans", "sent_f1")
+  #res <- res |> mutate(epoch = epoch)
+  res = tibble()
   return(res)
 }
 
@@ -65,7 +66,7 @@ get_seed_results <- function(dirname){
 
 get_model_results <- function(dirname){
   model = str_split_i(dirname, "/", -1)
-  seed_dirs = list.dirs(dirname, recursive = FALSE)
+  seed_dirs = list.dirs(dirname, recursive = FALSE, full.names = TRUE)
   model_results <- seed_dirs |> map(get_seed_results) |> reduce(rbind)
   sem_boot_test <- model_results$sem |> reduce(rbind)
   sem_boot_test <- sem_boot_test |> mutate(model = model)
@@ -89,16 +90,18 @@ plot_data <- sem_boot_test |>
   group_by(model, epoch, seed) |>
   summarise(seed_f1 = mean(sent_f1)) |>
   ungroup() |> group_by(model, epoch) |>
-  summarise(mean_f1 = mean(seed_f1), sd_f1 = sd(seed_f1)) |>
+  summarise(mean_f1 = mean(seed_f1), sd_f1 = sd(seed_f1), n = n(),
+    se_f1 = sd_f1 / sqrt(n)) |>
   mutate(epoch = epoch + 1) |>
   mutate(model = 
-case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Gold")) |>
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Visual-labels")) |>
   mutate(model = as.factor(model)) 
 
 
 p <- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_f1))+
   geom_line(aes(x=15), alpha=0.6, linetype = "dotted") +
-  geom_ribbon(aes(ymin = (mean_f1 - sd_f1), ymax = (mean_f1 + sd_f1), fill = model), alpha=0.3)+
+  #geom_ribbon(aes(ymin = (mean_f1 - sd_f1), ymax = (mean_f1 + sd_f1), fill = model), alpha=0.3)+
+  geom_ribbon(aes(ymin = (mean_f1 - se_f1), ymax = (mean_f1 + se_f1), fill = model), alpha=0.3)+
   geom_line(aes(x=epoch, y=mean_f1, color=model), size=1.3) +
   #scale_color_manual(levels=c("Joint-learning", "Syntax-first", "Semantics-first", "Gold"))+
   #scale_fill_manual(levels=c("Joint-learning", "Syntax-first", "Semantics-first", "Gold"))+
@@ -118,24 +121,25 @@ plot_data <- out_dist |>
   group_by(model, epoch, seed) |>
   summarise(seed_f1 = mean(sent_f1)) |>
   ungroup() |> group_by(model, epoch) |>
-  summarise(mean_f1 = mean(seed_f1), sd_f1 = sd(seed_f1)) |>
+  summarise(mean_f1 = mean(seed_f1), sd_f1 = sd(seed_f1), n = n(),
+    se_f1 = sd_f1 / sqrt(n)) |>
     mutate(epoch = epoch + 1) |>
   mutate(model = 
-case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Gold")) |>
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Visual-labels")) |>
   mutate(model = as.factor(model)) 
 
 p <- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_f1))+
   geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
-  geom_ribbon(aes(ymin = (mean_f1 - sd_f1), ymax = (mean_f1 + sd_f1), fill = model), alpha=0.3)+
+  #geom_ribbon(aes(ymin = (mean_f1 - sd_f1), ymax = (mean_f1 + sd_f1), fill = model), alpha=0.3)+
+  geom_ribbon(aes(ymin = (mean_f1 - se_f1), ymax = (mean_f1 + se_f1), fill = model), alpha=0.3)+
   geom_line(aes(x=epoch, y=mean_f1, color=model), size=1.3) +
-#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
-#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
-#  scale_y_continuous(limits=c(0.0, 1.0))+
   labs(x= "Epoch", y="Mean F1", color = "Model", fill = "Model") +
   theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
 
+
 #ggsave("sem_boot_outdist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
-ggsave("sem_boot_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+#ggsave("sem_boot_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+ggsave("sem_boot_indist_se.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
 
 #plot_data <- in_dist |>
 #  group_by(model, epoch, seed) |>
@@ -188,7 +192,8 @@ sem_first_early <- plot_data |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score), n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1)
 
 sem_first_data <- plot_data |>
@@ -202,7 +207,8 @@ sem_first_data <- plot_data |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score), n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1) |>
   rbind(sem_first_early)
 
@@ -216,21 +222,20 @@ plot_data_tr <- plot_data |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score) , n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1) |>
   rbind(sem_first_data) |>
   mutate(model = 
-case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Gold")) |>
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Visual-labels")) |>
   mutate(model = as.factor(model)) |>
   mutate(v_type = "Transitive")
 
 p<- ggplot(plot_data_tr |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
   geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
-  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  #geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_ribbon(aes(ymin = (mean_score - se_score), ymax = (mean_score + se_score), fill = model), alpha=0.3)+
   geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
-#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
-#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
-#  scale_y_continuous(limits=c(0.0, 1.0))+
   labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
   theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
 
@@ -255,7 +260,8 @@ sem_first_early <- plot_data |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score), n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1)
 
 sem_first_data <- plot_data |>
@@ -269,7 +275,8 @@ sem_first_data <- plot_data |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score), n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1) |>
   rbind(sem_first_early)
 
@@ -283,21 +290,20 @@ plot_data_intr <- plot_data |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score), n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1) |>
   rbind(sem_first_data) |>
   mutate(model = 
-case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Gold")) |>
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Visual-labels")) |>
   mutate(model = as.factor(model)) |>
   mutate(v_type = "Intransitive")
 
 p<- ggplot(plot_data_intr |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
   geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
-  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  #geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_ribbon(aes(ymin = (mean_score - se_score), ymax = (mean_score + se_score), fill = model), alpha=0.3)+
   geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
-#  scale_color_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
-#  scale_fill_manual(labels=c("AND", "OR"), values=c("#225ea8", "#cc4c02"))+
-#  scale_y_continuous(limits=c(0.0, 1.0))+
   labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
   theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
 
@@ -313,32 +319,116 @@ plot_data <- plot_data_intr |>
 
 p<- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
   geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
-  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  #geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_ribbon(aes(ymin = (mean_score - se_score), ymax = (mean_score + se_score), fill = model), alpha=0.3)+
   geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
   facet_wrap(vars(v_type)) +
   labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
   theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
 
 #ggsave("syn_boot_vtype_indist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
-ggsave("syn_boot_vtype_outdist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
+#ggsave("syn_boot_vtype_outdist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
+ggsave("syn_boot_vtype_outdist_se.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
 
 
 plot_data <- plot_data_intr |>
-  mutate(mean_score_intr = mean_score, sd_score_intr = sd_score) |>
-  select(-c(mean_score, sd_score, v_type)) |>
+  mutate(mean_score_intr = mean_score, sd_score_intr = sd_score, se_score_intr = se_score) |>
+  select(-c(mean_score, sd_score, se_score, v_type)) |>
   left_join(plot_data_tr) |>
-  mutate(mean_score = (mean_score+mean_score_intr)/2, sd_score = (sd_score_intr+sd_score)/2)
+  mutate(mean_score = (mean_score+mean_score_intr)/2, sd_score = (sd_score_intr+sd_score)/2, se_score = (se_score_intr+se_score)/2)
 
 
 p<- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
   geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
-  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  #geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_ribbon(aes(ymin = (mean_score - se_score), ymax = (mean_score + se_score), fill = model), alpha=0.3)+
   geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
   labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
   theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
 
 #ggsave("syn_boot_all_indist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
 #ggsave("syn_boot_all_outdist.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+ggsave("syn_boot_all_outdist_se.jpeg", plot=p, device="jpeg", width = 7, height = 3.5, units="in")
+```
+
+
+Paired t-test for difference in sem-first model between epoch 15 and epoch 16 ie before and after joint-learning
+```{r}
+
+before_tr <- syn_boot_test |>
+  group_by(model, epoch, seed) |>
+  mutate(total_n = n()) |>
+  filter(model=="sem-first-model") |>
+  filter(epoch == 14) |>
+  group_by(model, epoch, seed) |>
+  filter(cap_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n)|>
+  select(seed, match_score)
+
+
+before_intr <- syn_boot_test |>
+  group_by(model, epoch, seed) |>
+  mutate(total_n = n()) |>
+  filter(model=="sem-first-model") |>
+  filter(epoch == 14) |>
+  group_by(model, epoch, seed) |>
+  filter(cap_score_intr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  select(seed, match_score)
+
+
+after_tr <- syn_boot_test |>
+  group_by(model, epoch, seed) |>
+  mutate(total_n = n()) |>
+  filter(model=="sem-first-model") |>
+  filter(epoch == 15) |>
+  group_by(model, epoch, seed) |>
+  filter(tree_score_tr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  select(seed, match_score)
+
+
+after_intr <- syn_boot_test |>
+  group_by(model, epoch, seed) |>
+  mutate(total_n = n()) |>
+  filter(model=="sem-first-model") |>
+  filter(epoch == 15) |>
+  group_by(model, epoch, seed) |>
+  filter(tree_score_intr == TRUE) |>
+  mutate(total_true = n()) |>
+  select(model, epoch, seed, total_n, total_true) |>
+  unique() |>
+  mutate(match_score = total_true/total_n) |>
+  select(seed, match_score)
+
+
+after <- after_intr |>
+  mutate(match_score_intr = match_score) |>
+  select(-c(match_score)) |>
+  left_join(after_tr) |>
+  group_by(model, epoch, seed) |>
+  mutate(match_score = (match_score+match_score_intr)/2)
+
+before <- before_intr |>
+  mutate(match_score_intr = match_score) |>
+  select(-c(match_score)) |>
+  left_join(before_tr) |>
+  group_by(model, epoch, seed) |>
+  mutate(match_score = (match_score+match_score_intr)/2)
+  
+  
+  
+t.test(before$match_score, after$match_score, paired = TRUE, alternative = "two.sided")
+
 
 ```
 
@@ -361,21 +451,23 @@ sem_first_early <- plot_data |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch, object_type) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score), n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1)
 
 sem_first_data <- plot_data |>
   ungroup() |>
   filter(model=="sem-first-model") |>
   filter(epoch >= 15) |>
-  group_by(model, epoch, seed, , object_type) |>
+  group_by(model, epoch, seed, object_type) |>
   filter(tree_score_tr == TRUE) |>
   mutate(total_true = n()) |>
   select(model, epoch, seed, total_n, total_true, object_type) |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch, object_type) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score), n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1) |>
   rbind(sem_first_early)
 
@@ -389,20 +481,25 @@ plot_data <- plot_data |>
   unique() |>
   mutate(match_score = total_true/total_n) |>
   ungroup() |> group_by(model, epoch, object_type) |>
-  summarise(mean_score = mean(match_score), sd_score = sd(match_score)) |>
+  summarise(mean_score = mean(match_score), sd_score = sd(match_score), n = n(),
+    se_score = sd_score / sqrt(n)) |>
   mutate(epoch = epoch + 1) |>
-  rbind(sem_first_data)
+  rbind(sem_first_data) |>
+  mutate(model = 
+case_match(model, "joint-model"~"Joint-learning", "sem-first-model"~"Semantics-first", "syn-first-model"~"Syntax-first", "gold-model"~ "Visual-labels"))
 
 p <- ggplot(plot_data |> filter(epoch <= 30), aes(x=epoch, y=mean_score))+
   geom_vline(xintercept = 15, linetype="dashed", alpha=0.7) +
-  geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  #geom_ribbon(aes(ymin = (mean_score - sd_score), ymax = (mean_score + sd_score), fill = model), alpha=0.3)+
+  geom_ribbon(aes(ymin = (mean_score - se_score), ymax = (mean_score + se_score), fill = model), alpha=0.3)+
   geom_line(aes(x=epoch, y=mean_score, color=model), size=1.3) +
   facet_wrap(vars(object_type)) +
   labs(x= "Epoch", y="Mean matching score", color = "Model", fill = "Model") +
   theme(axis.text = element_text(size=14), legend.text = element_text(size = 14))
 
 #ggsave("syn_boot_tr_obj_indist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
-ggsave("syn_boot_tr_obj_outdist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
+#ggsave("syn_boot_tr_obj_outdist.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
+ggsave("syn_boot_tr_obj_outdist_se.jpeg", plot=p, device="jpeg", width = 9.5, height = 3.5, units="in")
 ```
 
 ### By verb stem - Transitives
