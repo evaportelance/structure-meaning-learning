@@ -119,7 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('--beta1', default=0.75, type=float, help='beta1 for adam')
     parser.add_argument('--beta2', default=0.999, type=float, help='beta2 for adam')
     #
-    parser.add_argument('--vse_mt_alpha', type=float, default=0.01, help='weight parameter for matching loss')
+    parser.add_argument('--vse_mt_alpha', type=float, default=1.0, help='weight parameter for matching loss')
     parser.add_argument('--vse_lm_alpha', type=float, default=1.0,  help='weight parameter for  loss')
     parser.add_argument('--sem_first', action='store_true', help='Run semantics first model')
     parser.add_argument('--syn_first', action='store_true', help='Run syntax first model')
