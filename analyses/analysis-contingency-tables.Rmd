@@ -170,4 +170,48 @@ ggsave("527_cat_prop.jpeg", plot=p, device="jpeg", width = 11, height = 8, units
 #ggsave("527_cat_prop14.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
 p = get_prop_plot(627)
 ggsave("627_cat_prop.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
-#ggsave("627_cat_prop14.jpeg", plot=p, device="jpeg", widt
+#ggsave("627_cat_prop14.jpeg", plot=p, device="jpeg", width = 11, height = 8, units="in")
+```
+
+
+### V-measure results
+```{r}
+
+get_vmeasure_data <- function(filename){
+  model = str_split_i(filename, "_", -4)
+  model = str_split_i(model, "/", -1)
+  seed = str_split_i(filename, "_", -3)
+  df<- read_csv(filename, col_names = TRUE)
+  ####### TOGGLE ###############
+  #df <- df |> filter(sent_id %in% test_ids$id)
+  ##############################
+  df <- get_syn_cats(df)
+  cluster_data <- df |> select(syn_cat, pred_cat) |>
+    mutate(model=model, seed=as.integer(seed)) |>
+    mutate(model = 
+case_match(model, "joint"~"Joint-learning", "sem-first"~"Semantics-first", "syn-first"~"Syntax-first", "gold"~ "Visual-labels"))
+  return(cluster_data)
+}
+
+result_main_dir = "../../results/parses/in-dist-29/df_cats"
+result_files <- list.files(result_main_dir, recursive = FALSE, full.names = TRUE)
+
+vmeasure_data <- result_files |> map(get_vmeasure_data) |> reduce(rbind)
+
+vmeasure_results <- vmeasure_data |>
+  group_by(model, seed) |>
+  summarize(v_measure = v_measure(syn_cat, pred_cat, beta = 0.3),
+            homogeneity = homogeneity(syn_cat, pred_cat),
+            completeness = completeness(syn_cat, pred_cat))
+
+vmeasure_results_means <- vmeasure_results |> ungroup() |>
+  group_by(model) |>
+  summarize(v_mean = mean(v_measure),
+            h_mean = mean(homogeneity),
+            c_mean = mean(completeness),
+            v_sd = sd(v_measure),
+            h_sd = sd(homogeneity),
+            c_sd = sd(completeness))
+
+
+```
