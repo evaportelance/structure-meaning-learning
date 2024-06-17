@@ -63,7 +63,6 @@ python ./simclr.py --dataset 'abstractscenes' --batch-size 100 --num-epochs 500 
 ### Training visually grounded grammar induction models
 Use the following commands to train a model.
 
---logger_name [Your logger name]
 #### Joint-learning model with self-supervised image embeddings
 
 ```bash
