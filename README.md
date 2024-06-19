@@ -104,7 +104,8 @@ Please cite the following paper:
 visually-grounded grammar induction models},
   author={Portelance, Eva and Frank, Michael C. and Jurafsky, Dan},
   year={2024},
-  journal={ArXiv preprint: }
+  journal={ArXiv preprint: 2406.11977},
+  url={https://arxiv.org/abs/2406.11977}
 }
 ```
 
