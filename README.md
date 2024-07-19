@@ -102,7 +102,7 @@ Please cite the following paper:
 @article{portelance2024reframing,
   title={Reframing linguistic bootstrapping as joint inference using
 visually-grounded grammar induction models},
-  author={Portelance, Eva and Frank, Michael C. and Jurafsky, Dan},
+  author={Portelance, Eva and Reddy, Siva and O'Donnell, Timothy J.},
   year={2024},
   journal={ArXiv preprint: 2406.11977},
   url={https://arxiv.org/abs/2406.11977}
